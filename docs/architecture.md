@@ -77,3 +77,7 @@ instance, `--renderer-process-limit`, capped terminal scrollback.
 3. CryptPad + real Settings (Wi-Fi/audio on the VM)
 4. pi-gen image for the Pi 400
 5. polish: lock screen, updates, themes, notifications, OOBE
+6. app platform: installable web apps + `.osapp` packages with scoped
+   permissions ([ADR 0001](decisions/0001-app-platform.md))
+7. **Ghost**: the AI layer — daemon-hosted agent loop whose tools are the
+   OS API itself, BYO model ([ADR 0002](decisions/0002-ghost-ai-assistant.md))
