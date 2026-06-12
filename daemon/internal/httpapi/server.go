@@ -75,6 +75,7 @@ func (s *Server) Router() http.Handler {
 			authed.Get("/office/status", s.officeStatus)
 			authed.Post("/office/open", s.officeOpen)
 			authed.Post("/office/close", s.officeClose)
+			authed.Post("/office/launch", s.officeLaunch)
 
 			authed.Get("/windows", s.windowsList)
 			authed.Post("/windows/action", s.windowsAction)
@@ -339,6 +340,20 @@ func (s *Server) officeOpen(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) officeClose(w http.ResponseWriter, r *http.Request) {
 	s.Office.Close()
+	writeJSON(w, map[string]bool{"ok": true})
+}
+
+// officeLaunch opens CryptPad as a native chromeless app window — its CSP
+// (frame-ancestors 'self') forbids iframing from the shell origin.
+func (s *Server) officeLaunch(w http.ResponseWriter, r *http.Request) {
+	if !s.Office.Available() {
+		http.Error(w, "office not configured", http.StatusNotFound)
+		return
+	}
+	if err := s.Browser.OpenApp(s.Office.URL() + "/drive/"); err != nil {
+		writeErr(w, err)
+		return
+	}
 	writeJSON(w, map[string]bool{"ok": true})
 }
 

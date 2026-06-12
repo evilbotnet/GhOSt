@@ -1,9 +1,9 @@
 <script lang="ts">
   import { api } from '../../api/client';
   import Icon from '../../desktop/Icon.svelte';
-  import type { Win } from '../../wm/wm.svelte';
+  import { wm, type Win } from '../../wm/wm.svelte';
 
-  let { win: _win }: { win: Win } = $props();
+  let { win }: { win: Win } = $props();
 
   interface OfficeStatus {
     available: boolean;
@@ -11,14 +11,22 @@
     running: boolean;
   }
 
-  let state = $state<'checking' | 'unavailable' | 'starting' | 'ready'>('checking');
-  let url = $state('');
+  // CryptPad's CSP (frame-ancestors 'self') forbids iframing it from the
+  // shell origin, so Office opens it as a native chromeless app window.
+  // This in-shell window is just the launcher/progress surface.
+  let state = $state<'checking' | 'unavailable' | 'starting' | 'launched'>('checking');
+
+  async function launch() {
+    await api.post('/office/launch').catch(() => {});
+    state = 'launched';
+    // The native window has its own taskbar entry; this launcher is done.
+    setTimeout(() => wm.close(win.id), 1200);
+  }
 
   $effect(() => {
     let stop = false;
 
     const poll = async () => {
-      // CryptPad is started on demand and takes a few seconds cold.
       while (!stop) {
         const s = await api.get<OfficeStatus>('/office/status').catch(() => null);
         if (stop) return;
@@ -27,8 +35,7 @@
           return;
         }
         if (s.running) {
-          url = s.url;
-          state = 'ready';
+          await launch();
           return;
         }
         state = 'starting';
@@ -46,31 +53,22 @@
   });
 </script>
 
-{#if state === 'ready'}
-  <iframe src={url} title="CryptPad" class="pad"></iframe>
-{:else}
-  <div class="placeholder">
-    <Icon name="office" size={40} />
-    <h2>Office</h2>
-    {#if state === 'starting'}
-      <p>Starting CryptPad…</p>
-    {:else if state === 'unavailable'}
-      <p>
-        CryptPad isn't installed on this system yet — it ships with the device
-        image (see os/vm/install-cryptpad.sh).
-      </p>
-    {:else}
-      <p>Checking for local CryptPad…</p>
-    {/if}
-  </div>
-{/if}
+<div class="placeholder">
+  <Icon name="office" size={40} />
+  <h2>Office</h2>
+  {#if state === 'starting' || state === 'checking'}
+    <p>Starting CryptPad…</p>
+  {:else if state === 'launched'}
+    <p>CryptPad is open in its own window.</p>
+  {:else}
+    <p>
+      CryptPad isn't installed on this system yet — it ships with the device
+      image (see os/vm/install-cryptpad.sh).
+    </p>
+  {/if}
+</div>
 
 <style>
-  .pad {
-    flex: 1;
-    border: none;
-    background: #fff;
-  }
   .placeholder {
     flex: 1;
     display: flex;

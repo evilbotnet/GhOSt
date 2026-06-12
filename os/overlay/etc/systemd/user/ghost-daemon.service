@@ -5,6 +5,8 @@ ConditionUser=ghost
 
 [Service]
 Environment=GHOST_OFFICE_URL=http://localhost:3000
+# CryptPad's sandbox origin: ghostd proxies 3001 -> 3000 (no nginx needed)
+Environment=GHOST_OFFICE_SAFE_PROXY=127.0.0.1:3001=127.0.0.1:3000
 ExecStart=/usr/local/bin/ghostd --listen 127.0.0.1:7700 --token-file %h/.config/ghost/token --static /usr/share/ghost/shell
 Restart=always
 RestartSec=1

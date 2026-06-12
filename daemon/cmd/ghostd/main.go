@@ -50,6 +50,7 @@ func main() {
 	files := fsops.New([]string{home, "/media"})
 	terms := term.NewManager(hub)
 	sys := system.New()
+	winMgr := windows.NewManager(hub)
 	go sys.PublishLoop(hub, 5*time.Second)
 
 	srv := &httpapi.Server{
@@ -61,8 +62,19 @@ func main() {
 		Terms:     terms,
 		System:    sys,
 		Browser:   browser.New(),
-		Office:    office.New(os.Getenv("GHOST_OFFICE_URL")),
-		Windows:   windows.NewManager(hub),
+		Windows:   winMgr,
+		Office: office.New(os.Getenv("GHOST_OFFICE_URL"), func() bool {
+			tops, err := winMgr.List()
+			if err != nil {
+				return false
+			}
+			for _, t := range tops {
+				if strings.HasPrefix(t.AppID, "chrome-localhost") {
+					return true
+				}
+			}
+			return false
+		}),
 	}
 
 	log.Printf("ghostd listening on http://%s (dev=%v, static=%q)", *listen, *dev, *staticDir)
