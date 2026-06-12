@@ -76,8 +76,11 @@ instance, `--renderer-process-limit`, capped terminal scrollback.
 2. ⏳ Debian 13 ARM64 VM boots into the kiosk shell (artifacts ready; needs VM)
 3. CryptPad + real Settings (Wi-Fi/audio on the VM)
 4. pi-gen image for the Pi 400
-5. polish: lock screen, updates, themes, notifications, OOBE
+5. polish: lock screen, updates, themes, notifications, OOBE — incl. the
+   optional devkit (pi, Herdr) install ([ADR 0003](decisions/0003-devkit-and-model-gateway.md))
 6. app platform: installable web apps + `.osapp` packages with scoped
    permissions ([ADR 0001](decisions/0001-app-platform.md))
 7. **Ghost**: the AI layer — daemon-hosted agent loop whose tools are the
-   OS API itself, BYO model ([ADR 0002](decisions/0002-ghost-ai-assistant.md))
+   OS API itself, configurable local/LAN/cloud router, plus the ghostd
+   OpenAI-compatible gateway for third-party tools
+   ([ADR 0002](decisions/0002-ghost-ai-assistant.md), [ADR 0003](decisions/0003-devkit-and-model-gateway.md))
