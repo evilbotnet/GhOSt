@@ -18,8 +18,10 @@ import (
 	"github.com/ghostos/ghostd/internal/browser"
 	"github.com/ghostos/ghostd/internal/fsops"
 	"github.com/ghostos/ghostd/internal/httpapi"
+	"github.com/ghostos/ghostd/internal/office"
 	"github.com/ghostos/ghostd/internal/system"
 	"github.com/ghostos/ghostd/internal/term"
+	"github.com/ghostos/ghostd/internal/windows"
 	"github.com/ghostos/ghostd/internal/ws"
 )
 
@@ -59,7 +61,8 @@ func main() {
 		Terms:     terms,
 		System:    sys,
 		Browser:   browser.New(),
-		OfficeURL: os.Getenv("GHOST_OFFICE_URL"),
+		Office:    office.New(os.Getenv("GHOST_OFFICE_URL")),
+		Windows:   windows.NewManager(hub),
 	}
 
 	log.Printf("ghostd listening on http://%s (dev=%v, static=%q)", *listen, *dev, *staticDir)

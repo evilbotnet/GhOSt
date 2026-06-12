@@ -19,8 +19,10 @@ import (
 
 	"github.com/ghostos/ghostd/internal/browser"
 	"github.com/ghostos/ghostd/internal/fsops"
+	"github.com/ghostos/ghostd/internal/office"
 	"github.com/ghostos/ghostd/internal/system"
 	"github.com/ghostos/ghostd/internal/term"
+	"github.com/ghostos/ghostd/internal/windows"
 	"github.com/ghostos/ghostd/internal/ws"
 )
 
@@ -33,7 +35,8 @@ type Server struct {
 	Terms     *term.Manager
 	System    *system.System
 	Browser   *browser.Browser
-	OfficeURL string
+	Windows   *windows.Manager
+	Office    *office.Manager
 }
 
 func (s *Server) Router() http.Handler {
@@ -70,6 +73,13 @@ func (s *Server) Router() http.Handler {
 
 			authed.Post("/browser/open", s.browserOpen)
 			authed.Get("/office/status", s.officeStatus)
+			authed.Post("/office/open", s.officeOpen)
+			authed.Post("/office/close", s.officeClose)
+
+			authed.Get("/windows", s.windowsList)
+			authed.Post("/windows/action", s.windowsAction)
+
+			authed.Post("/system/screenshot", s.screenshot)
 		})
 	})
 
@@ -285,12 +295,60 @@ func (s *Server) browserOpen(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]bool{"ok": true})
 }
 
+func (s *Server) windowsList(w http.ResponseWriter, r *http.Request) {
+	if !s.Windows.Available() {
+		writeJSON(w, []windows.Toplevel{})
+		return
+	}
+	tops, err := s.Windows.List()
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, tops)
+}
+
+func (s *Server) windowsAction(w http.ResponseWriter, r *http.Request) {
+	var req struct{ AppID, Title, Action string }
+	if !readJSON(w, r, &req) {
+		return
+	}
+	if err := s.Windows.Act(req.Action, req.AppID, req.Title); err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, map[string]bool{"ok": true})
+}
+
 func (s *Server) officeStatus(w http.ResponseWriter, r *http.Request) {
-	if s.OfficeURL == "" {
+	writeJSON(w, map[string]any{
+		"available": s.Office.Available(),
+		"url":       s.Office.URL(),
+		"running":   s.Office.Running(),
+	})
+}
+
+func (s *Server) officeOpen(w http.ResponseWriter, r *http.Request) {
+	if !s.Office.Available() {
 		http.Error(w, "office not configured", http.StatusNotFound)
 		return
 	}
-	writeJSON(w, map[string]any{"url": s.OfficeURL, "running": true})
+	s.Office.Open()
+	writeJSON(w, map[string]bool{"ok": true})
+}
+
+func (s *Server) officeClose(w http.ResponseWriter, r *http.Request) {
+	s.Office.Close()
+	writeJSON(w, map[string]bool{"ok": true})
+}
+
+func (s *Server) screenshot(w http.ResponseWriter, r *http.Request) {
+	path, err := s.System.Screenshot()
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, map[string]string{"path": path})
 }
 
 // ---- helpers ----

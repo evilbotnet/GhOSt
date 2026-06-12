@@ -49,6 +49,7 @@ type Driver interface {
 	WifiNetworks() ([]WifiNetwork, error)
 	WifiConnect(ssid, password string) error
 	SetVolume(percent int) error
+	Screenshot(dir string) (string, error)
 }
 
 type System struct {
@@ -70,6 +71,19 @@ func (s *System) Status() Status {
 func (s *System) WifiNetworks() ([]WifiNetwork, error) { return s.driver.WifiNetworks() }
 func (s *System) WifiConnect(ssid, pw string) error    { return s.driver.WifiConnect(ssid, pw) }
 func (s *System) SetVolume(p int) error                { return s.driver.SetVolume(p) }
+
+// Screenshot captures the screen into ~/Pictures and returns the file path.
+func (s *System) Screenshot() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	dir := home + "/Pictures"
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	return s.driver.Screenshot(dir)
+}
 
 // PublishLoop pushes status to the `system` topic so the tray stays live.
 func (s *System) PublishLoop(hub *ws.Hub, every time.Duration) {

@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import Clock from './Clock.svelte';
+  import { api } from '../api/client';
   import { system } from '../api/system.svelte';
   import { wm } from '../wm/wm.svelte';
   import { getApp } from '../apps/registry';
@@ -15,9 +16,22 @@
     const win = wm.open(app);
     (win.props as Record<string, unknown>).panel = panel;
   }
+
+  let shotMsg = $state('');
+  async function screenshot() {
+    popOpen = false;
+    try {
+      const res = await api.post<{ path: string }>('/system/screenshot');
+      shotMsg = `Saved ${res.path.split('/').pop()}`;
+    } catch {
+      shotMsg = 'Screenshot failed';
+    }
+    setTimeout(() => (shotMsg = ''), 2500);
+  }
 </script>
 
 <div class="tray">
+  {#if shotMsg}<span class="toast">{shotMsg}</span>{/if}
   <button class="status" class:active={popOpen} onclick={() => (popOpen = !popOpen)}>
     {#if s.wifi.available}
       <span class:dim={!s.wifi.connected}><Icon name="wifi" size={15} /></span>
@@ -53,6 +67,10 @@
         />
         <span class="val">{s.volume.percent}%</span>
       </div>
+      <button class="row" onclick={screenshot}>
+        <Icon name="camera" size={15} />
+        <span>Screenshot</span>
+      </button>
       <button class="row" onclick={() => openSettings('about')}>
         <Icon name="settings" size={15} />
         <span>Settings</span>
@@ -65,6 +83,14 @@
 <style>
   .tray {
     position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .toast {
+    font-size: 11.5px;
+    color: var(--accent);
+    white-space: nowrap;
   }
   .status {
     display: flex;

@@ -13,10 +13,18 @@ DIST="${1:?usage: provision.sh <dist-dir with ghostd, shell/, overlay/>}"
 echo "==> packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
+
+# Debian *cloud* kernels have no DRM drivers — no /dev/dri, no compositor.
+# Swap in the full kernel when provisioning a genericcloud image.
+if uname -r | grep -q cloud; then
+  echo "==> cloud kernel detected: installing full kernel (reboot required)"
+  apt-get install -y linux-image-arm64
+  apt-get purge -y "linux-image-*cloud*" || true
+fi
 apt-get install -y --no-install-recommends \
-  labwc greetd seatd chromium wlrctl grim curl \
+  labwc greetd chromium wlrctl grim curl \
   pipewire pipewire-pulse wireplumber \
-  network-manager polkitd \
+  network-manager polkitd dbus-user-session \
   fonts-noto-core fonts-noto-color-emoji
 
 echo "==> ghost user"
@@ -36,10 +44,10 @@ install -d -o ghost -g ghost -m 0700 /home/ghost/.config /home/ghost/.config/gho
 
 echo "==> services"
 systemctl daemon-reload
-machinectl shell ghost@ /usr/bin/systemctl --user daemon-reload 2>/dev/null || true
-machinectl shell ghost@ /usr/bin/systemctl --user enable ghost-daemon.service 2>/dev/null || \
-  su -s /bin/sh ghost -c 'XDG_RUNTIME_DIR=/run/user/$(id -u) systemctl --user enable ghost-daemon.service' || true
-systemctl enable greetd seatd NetworkManager
+# Enable the user unit for every user without needing a live session
+# (seat access comes from logind via greetd's PAM session — no seatd).
+systemctl --global enable ghost-daemon.service
+systemctl enable greetd NetworkManager
 systemctl set-default graphical.target
 
 echo "==> done — reboot to enter GhOSt"

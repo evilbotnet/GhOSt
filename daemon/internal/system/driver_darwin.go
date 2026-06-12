@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 // darwinDriver backs the macOS dev loop: volume is real (osascript),
@@ -89,4 +90,12 @@ func (d *darwinDriver) SetVolume(percent int) error {
 	d.volume = percent
 	d.mu.Unlock()
 	return exec.Command("osascript", "-e", fmt.Sprintf("set volume output volume %d", percent)).Run()
+}
+
+func (d *darwinDriver) Screenshot(dir string) (string, error) {
+	path := dir + "/screen-" + time.Now().Format("20060102-150405") + ".png"
+	if err := exec.Command("screencapture", "-x", path).Run(); err != nil {
+		return "", err
+	}
+	return path, nil
 }

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // linuxDriver v1 shells out to nmcli (NetworkManager) and wpctl (PipeWire);
@@ -29,7 +30,15 @@ func (d *linuxDriver) Status() Status {
 	}
 }
 
+func (d *linuxDriver) hasWifiDevice() bool {
+	out, err := exec.Command("nmcli", "-t", "-f", "TYPE", "dev").Output()
+	return err == nil && strings.Contains(string(out), "wifi")
+}
+
 func (d *linuxDriver) wifiStatus() WifiStatus {
+	if !d.hasWifiDevice() {
+		return WifiStatus{Available: false}
+	}
 	out, err := exec.Command("nmcli", "-t", "-f", "ACTIVE,SSID,SIGNAL", "dev", "wifi").Output()
 	if err != nil {
 		return WifiStatus{Available: false}
@@ -140,4 +149,13 @@ func (d *linuxDriver) SetVolume(percent int) error {
 	}
 	return exec.Command("wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@",
 		fmt.Sprintf("%d%%", percent)).Run()
+}
+
+func (d *linuxDriver) Screenshot(dir string) (string, error) {
+	path := filepath.Join(dir, "screen-"+time.Now().Format("20060102-150405")+".png")
+	out, err := exec.Command("grim", path).CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("grim: %s", strings.TrimSpace(string(out)))
+	}
+	return path, nil
 }

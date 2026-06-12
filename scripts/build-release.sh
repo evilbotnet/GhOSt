@@ -18,3 +18,4 @@ cp os/vm/provision.sh dist/ghost/
 
 echo "==> dist/ghost ready:"
 du -sh dist/ghost/* | sed 's/^/    /'
+cp os/vm/install-cryptpad.sh dist/ghost/

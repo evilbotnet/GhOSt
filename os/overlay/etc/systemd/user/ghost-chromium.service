@@ -1,0 +1,24 @@
+[Unit]
+Description=GhOSt shell window (Chromium --app)
+ConditionUser=ghost
+After=ghost-daemon.service
+
+[Service]
+# Wait for ghostd, then run the shell as a chromeless app window. The same
+# Chromium instance hosts browsing windows (daemon opens them via --new-window
+# into the shared profile).
+ExecStartPre=/bin/sh -c 'until curl -fs -o /dev/null http://127.0.0.1:7700/; do sleep 0.2; done'
+ExecStart=/usr/bin/chromium \
+  --app=http://127.0.0.1:7700 \
+  --user-data-dir=%h/.config/ghost-browser \
+  --ozone-platform=wayland \
+  --start-maximized \
+  --no-first-run \
+  --disable-session-crashed-bubble \
+  --renderer-process-limit=6
+Restart=always
+RestartSec=1
+
+[Install]
+# Not WantedBy anything: started by the labwc autostart after the compositor
+# environment is imported (WAYLAND_DISPLAY must exist first).

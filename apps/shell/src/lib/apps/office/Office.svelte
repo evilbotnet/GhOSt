@@ -5,29 +5,59 @@
 
   let { win: _win }: { win: Win } = $props();
 
-  // Phase 3 wires this to the local CryptPad instance (socket-activated).
-  let officeUrl = $state<string | null>(null);
-  let checked = $state(false);
+  interface OfficeStatus {
+    available: boolean;
+    url: string;
+    running: boolean;
+  }
 
-  api
-    .get<{ url: string; running: boolean }>('/office/status')
-    .then((s) => {
-      officeUrl = s.url;
-      checked = true;
-    })
-    .catch(() => (checked = true));
+  let state = $state<'checking' | 'unavailable' | 'starting' | 'ready'>('checking');
+  let url = $state('');
+
+  $effect(() => {
+    let stop = false;
+
+    const poll = async () => {
+      // CryptPad is started on demand and takes a few seconds cold.
+      while (!stop) {
+        const s = await api.get<OfficeStatus>('/office/status').catch(() => null);
+        if (stop) return;
+        if (!s || !s.available) {
+          state = 'unavailable';
+          return;
+        }
+        if (s.running) {
+          url = s.url;
+          state = 'ready';
+          return;
+        }
+        state = 'starting';
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+    };
+
+    api.post('/office/open').catch(() => {});
+    void poll();
+
+    return () => {
+      stop = true;
+      api.post('/office/close').catch(() => {});
+    };
+  });
 </script>
 
-{#if officeUrl}
-  <iframe src={officeUrl} title="CryptPad" class="pad"></iframe>
+{#if state === 'ready'}
+  <iframe src={url} title="CryptPad" class="pad"></iframe>
 {:else}
   <div class="placeholder">
     <Icon name="office" size={40} />
     <h2>Office</h2>
-    {#if checked}
+    {#if state === 'starting'}
+      <p>Starting CryptPad…</p>
+    {:else if state === 'unavailable'}
       <p>
         CryptPad isn't installed on this system yet — it ships with the device
-        image (docs/architecture.md, Phase 3).
+        image (see os/vm/install-cryptpad.sh).
       </p>
     {:else}
       <p>Checking for local CryptPad…</p>

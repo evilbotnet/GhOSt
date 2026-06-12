@@ -3,8 +3,16 @@
   import StatusTray from './StatusTray.svelte';
   import { wm } from '../wm/wm.svelte';
   import { openBrowser } from '../apps/registry';
+  import { nativeWindows } from '../api/windows.svelte';
 
   let { launcherOpen = $bindable(false) }: { launcherOpen?: boolean } = $props();
+
+  nativeWindows.start();
+
+  function nativeIcon(appId: string) {
+    if (appId.startsWith('chrom')) return 'browser';
+    return 'maximize';
+  }
 </script>
 
 <nav class="taskbar">
@@ -36,6 +44,20 @@
         onclick={() => wm.toggleFromTaskbar(win.id)}
       >
         <Icon name={win.app.icon} size={16} />
+        <span class="lamp"></span>
+      </button>
+    {/each}
+    {#each nativeWindows.list as nwin (nwin.appId + nwin.title)}
+      <button
+        class="task native"
+        title={nwin.title}
+        onclick={() => nativeWindows.act('focus', nwin)}
+        oncontextmenu={(e) => {
+          e.preventDefault();
+          nativeWindows.act('close', nwin);
+        }}
+      >
+        <Icon name={nativeIcon(nwin.appId)} size={16} />
         <span class="lamp"></span>
       </button>
     {/each}
@@ -137,5 +159,8 @@
   }
   .task.min .lamp {
     width: 5px;
+  }
+  .task.native .lamp {
+    background: var(--text-mid);
   }
 </style>

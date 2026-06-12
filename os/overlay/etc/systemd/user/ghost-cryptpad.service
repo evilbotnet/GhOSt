@@ -1,0 +1,11 @@
+[Unit]
+Description=CryptPad (local office suite for GhOSt)
+ConditionUser=ghost
+
+[Service]
+WorkingDirectory=/opt/cryptpad
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=2
+# Started on demand by ghostd when the Office app opens; stopped after
+# ten idle minutes (daemon/internal/office). No [Install] on purpose.
