@@ -1,0 +1,12 @@
+[Unit]
+Description=OpenOS system daemon (osd)
+
+[Service]
+ExecStart=/usr/local/bin/osd --listen 127.0.0.1:7700 --token-file %h/.config/openos/token --static /usr/share/openos/shell
+Restart=always
+RestartSec=1
+# osd must never run as root; privileged actions go through NM/logind/polkit.
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=default.target

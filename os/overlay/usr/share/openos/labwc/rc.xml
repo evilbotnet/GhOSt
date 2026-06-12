@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- OpenOS labwc config.
+     The shell's Chromium app window (app_id chrome-127.0.0.1__-Default) is
+     undecorated and maximized so it reads as "the desktop"; browsing windows
+     from the same instance stack above it with Chromium's own tab UI.
+     RISK CHECK (plan risk #1): verify the identifier glob matches on the VM
+     with `wlrctl toplevel list` before trusting it. -->
+<labwc_config>
+  <core>
+    <decoration>server</decoration>
+    <gap>0</gap>
+  </core>
+  <theme>
+    <cornerRadius>8</cornerRadius>
+  </theme>
+  <windowRules>
+    <!-- the shell window: chromeless desktop -->
+    <windowRule identifier="chrome-127.0.0.1*" serverDecoration="no" skipTaskbar="yes" skipWindowSwitcher="yes" />
+  </windowRules>
+  <keyboard>
+    <default />
+    <!-- dev convenience; release hardening trims this (plan Phase 5) -->
+    <keybind key="A-Tab"><action name="NextWindow" /></keybind>
+  </keyboard>
+</labwc_config>

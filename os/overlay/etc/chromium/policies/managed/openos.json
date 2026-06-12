@@ -1,0 +1,18 @@
+{
+  "DeveloperToolsAvailability": 2,
+  "ExtensionInstallBlocklist": ["*"],
+  "BrowserSignin": 0,
+  "DefaultBrowserSettingEnabled": false,
+  "MetricsReportingEnabled": false,
+  "PasswordManagerEnabled": true,
+  "PaymentMethodQueryEnabled": false,
+  "BackgroundModeEnabled": false,
+  "PromotionalTabsEnabled": false,
+  "URLBlocklist": [
+    "chrome://settings",
+    "chrome://flags",
+    "chrome://extensions",
+    "chrome://accessibility",
+    "chrome://inspect"
+  ]
+}

@@ -1,0 +1,53 @@
+/* OpenOS design tokens — "warm machine"
+   Deep ink surfaces, one copper accent. No backdrop-filter anywhere:
+   depth comes from borders + layered shadows (Pi 400 GPU budget). */
+:root {
+  /* ink scale (blue-black, warm undertone) */
+  --ink-0: #0b0e13; /* desktop deepest */
+  --ink-1: #11151c; /* window chrome */
+  --ink-2: #171c25; /* surfaces */
+  --ink-3: #1f2530; /* raised surfaces, hover */
+  --ink-4: #2a3140; /* active, borders strong */
+
+  --line: #2c3342; /* hairline borders */
+  --line-soft: #1d222d;
+
+  /* text */
+  --text-hi: #e8e6e0; /* warm white */
+  --text-mid: #9aa1ad;
+  --text-low: #5d6470;
+
+  /* the one accent: copper LED */
+  --accent: #e09954;
+  --accent-bright: #f0b576;
+  --accent-dim: #8a5e34;
+  --accent-ink: #1a1208; /* text on accent */
+
+  /* status */
+  --ok: #7fb069;
+  --warn: #e09954;
+  --err: #d4654f;
+
+  /* type */
+  --font-display: 'Bricolage Grotesque Variable', sans-serif;
+  --font-ui: 'Schibsted Grotesk', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* geometry */
+  --radius-win: 10px;
+  --radius-ui: 7px;
+  --taskbar-h: 46px;
+
+  /* shadows (layered, no blur filters) */
+  --shadow-win:
+    0 0 0 1px var(--line-soft),
+    0 2px 8px rgba(0, 0, 0, 0.45),
+    0 14px 40px rgba(0, 0, 0, 0.5);
+  --shadow-win-focus:
+    0 0 0 1px var(--ink-4),
+    0 3px 10px rgba(0, 0, 0, 0.5),
+    0 20px 56px rgba(0, 0, 0, 0.6);
+  --shadow-pop:
+    0 0 0 1px var(--line-soft),
+    0 8px 28px rgba(0, 0, 0, 0.55);
+}

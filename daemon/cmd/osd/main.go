@@ -1,0 +1,90 @@
+// osd — the OpenOS system daemon.
+//
+// Serves the built shell, exposes the system API (filesystem, terminal,
+// system status, browser windows) over localhost HTTP + one WebSocket,
+// authenticated with a per-session bearer token.
+package main
+
+import (
+	"crypto/rand"
+	"encoding/hex"
+	"flag"
+	"log"
+	"net/http"
+	"os"
+	"strings"
+	"time"
+
+	"github.com/openos/osd/internal/browser"
+	"github.com/openos/osd/internal/fsops"
+	"github.com/openos/osd/internal/httpapi"
+	"github.com/openos/osd/internal/system"
+	"github.com/openos/osd/internal/term"
+	"github.com/openos/osd/internal/ws"
+)
+
+func main() {
+	listen := flag.String("listen", "127.0.0.1:7700", "address to bind (localhost only)")
+	tokenFile := flag.String("token-file", "", "path to session token file (created if missing)")
+	staticDir := flag.String("static", "", "directory with the built shell to serve")
+	dev := flag.Bool("dev", false, "dev mode: expose /session/dev-token and allow the Vite origin")
+	flag.Parse()
+
+	if !strings.HasPrefix(*listen, "127.0.0.1:") && !strings.HasPrefix(*listen, "localhost:") {
+		log.Fatalf("refusing to bind non-loopback address %q", *listen)
+	}
+
+	token, err := loadOrCreateToken(*tokenFile)
+	if err != nil {
+		log.Fatalf("token: %v", err)
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatalf("home: %v", err)
+	}
+
+	hub := ws.NewHub()
+	files := fsops.New([]string{home, "/media"})
+	terms := term.NewManager(hub)
+	sys := system.New()
+	go sys.PublishLoop(hub, 5*time.Second)
+
+	srv := &httpapi.Server{
+		Token:     token,
+		Dev:       *dev,
+		StaticDir: *staticDir,
+		Hub:       hub,
+		Files:     files,
+		Terms:     terms,
+		System:    sys,
+		Browser:   browser.New(),
+		OfficeURL: os.Getenv("OPENOS_OFFICE_URL"),
+	}
+
+	log.Printf("osd listening on http://%s (dev=%v, static=%q)", *listen, *dev, *staticDir)
+	if err := http.ListenAndServe(*listen, srv.Router()); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func loadOrCreateToken(path string) (string, error) {
+	if path == "" {
+		// ephemeral token (still printed nowhere; dev endpoint hands it out)
+		b := make([]byte, 32)
+		rand.Read(b)
+		return hex.EncodeToString(b), nil
+	}
+	if data, err := os.ReadFile(path); err == nil {
+		if t := strings.TrimSpace(string(data)); t != "" {
+			return t, nil
+		}
+	}
+	b := make([]byte, 32)
+	rand.Read(b)
+	t := hex.EncodeToString(b)
+	if err := os.WriteFile(path, []byte(t+"\n"), 0o600); err != nil {
+		return "", err
+	}
+	return t, nil
+}

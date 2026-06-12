@@ -1,0 +1,4 @@
+#!/bin/sh
+# OpenOS session entry point, launched by greetd as the openos user.
+export XDG_CURRENT_DESKTOP=openos
+exec labwc -C /usr/share/openos/labwc
