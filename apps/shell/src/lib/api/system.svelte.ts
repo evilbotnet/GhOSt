@@ -5,7 +5,7 @@ import { api, type SystemStatus } from './client';
 import { subscribe } from './ws';
 
 const OFFLINE: SystemStatus = {
-  hostname: 'openos',
+  hostname: 'ghost',
   platform: 'unknown',
   wifi: { available: false, connected: false, ssid: '', signal: 0 },
   battery: { available: false, charging: false, percent: 0 },

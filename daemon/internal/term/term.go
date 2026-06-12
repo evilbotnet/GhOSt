@@ -12,7 +12,7 @@ import (
 
 	"github.com/creack/pty"
 
-	"github.com/openos/osd/internal/ws"
+	"github.com/ghostos/ghostd/internal/ws"
 )
 
 type session struct {

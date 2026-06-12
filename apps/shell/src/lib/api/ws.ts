@@ -1,4 +1,4 @@
-// Single multiplexed WebSocket to osd. Envelope: {topic, event, payload}.
+// Single multiplexed WebSocket to ghostd. Envelope: {topic, event, payload}.
 // Subscribers register per-topic; the socket reconnects with backoff.
 import { ensureToken, getToken } from './client';
 

@@ -26,7 +26,7 @@ func (b *Browser) Open(raw string) error {
 		// Same profile dir as the kiosk session (see os/overlay autostart):
 		// Chromium forwards this to the already-running instance.
 		return exec.Command("chromium",
-			"--user-data-dir=/home/openos/.config/openos-browser",
+			"--user-data-dir=/home/ghost/.config/ghost-browser",
 			"--new-window", u.String()).Start()
 	}
 }

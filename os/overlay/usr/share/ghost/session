@@ -1,0 +1,4 @@
+#!/bin/sh
+# GhOSt session entry point, launched by greetd as the ghost user.
+export XDG_CURRENT_DESKTOP=ghost
+exec labwc -C /usr/share/ghost/labwc

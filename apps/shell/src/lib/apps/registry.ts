@@ -51,7 +51,7 @@ export const apps: AppDef[] = [
   },
   {
     id: 'about',
-    name: 'About OpenOS',
+    name: 'About GhOSt',
     icon: 'info',
     component: About,
     defaultSize: { w: 460, h: 380 },

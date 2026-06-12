@@ -2,8 +2,8 @@ node_modules/
 dist/
 *.log
 .DS_Store
-daemon/osd
-daemon/osd-*
+daemon/ghostd
+daemon/ghostd-*
 os/pi-gen/work/
 os/pi-gen/deploy/
-.openos-dev-token
+.ghost-dev-token

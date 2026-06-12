@@ -1,8 +1,8 @@
 import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 
-// In dev, the shell is served by Vite (:5173) and the osd daemon runs on :7700.
-// In production, osd serves the built shell itself, so /api is same-origin.
+// In dev, the shell is served by Vite (:5173) and the ghostd daemon runs on :7700.
+// In production, ghostd serves the built shell itself, so /api is same-origin.
 export default defineConfig({
   plugins: [svelte()],
   server: {

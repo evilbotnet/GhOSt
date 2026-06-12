@@ -36,7 +36,7 @@
       const home = await api.get<{ path: string }>('/fs/home');
       await load(home.path, false);
     } catch (e) {
-      error = 'File daemon unreachable. Is osd running? (scripts/dev.sh)';
+      error = 'File daemon unreachable. Is ghostd running? (scripts/dev.sh)';
     }
   }
   init();

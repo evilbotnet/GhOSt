@@ -136,7 +136,7 @@
         <dt>Platform</dt>
         <dd>{s.platform}</dd>
         <dt>Shell</dt>
-        <dd>OpenOS 0.1.0</dd>
+        <dd>GhOSt 0.1.0</dd>
         <dt>Daemon</dt>
         <dd>{system.online ? 'connected' : 'offline'}</dd>
       </dl>

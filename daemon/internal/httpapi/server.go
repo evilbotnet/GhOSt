@@ -17,11 +17,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/openos/osd/internal/browser"
-	"github.com/openos/osd/internal/fsops"
-	"github.com/openos/osd/internal/system"
-	"github.com/openos/osd/internal/term"
-	"github.com/openos/osd/internal/ws"
+	"github.com/ghostos/ghostd/internal/browser"
+	"github.com/ghostos/ghostd/internal/fsops"
+	"github.com/ghostos/ghostd/internal/system"
+	"github.com/ghostos/ghostd/internal/term"
+	"github.com/ghostos/ghostd/internal/ws"
 )
 
 type Server struct {
@@ -126,7 +126,7 @@ func (s *Server) serveShell(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "shell not built", http.StatusInternalServerError)
 			return
 		}
-		inject := fmt.Sprintf("<script>window.__OPENOS_TOKEN__=%q;</script>", s.Token)
+		inject := fmt.Sprintf("<script>window.__GHOST_TOKEN__=%q;</script>", s.Token)
 		html := strings.Replace(string(data), "<head>", "<head>"+inject, 1)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")

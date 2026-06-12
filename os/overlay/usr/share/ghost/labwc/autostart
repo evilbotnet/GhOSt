@@ -1,11 +1,11 @@
-# OpenOS autostart, sourced by labwc once the compositor is up.
+# GhOSt autostart, sourced by labwc once the compositor is up.
 
-# Hand the compositor environment to systemd user units (osd spawns Chromium
+# Hand the compositor environment to systemd user units (ghostd spawns Chromium
 # windows and needs WAYLAND_DISPLAY).
 systemctl --user import-environment WAYLAND_DISPLAY XDG_RUNTIME_DIR XDG_CURRENT_DESKTOP
-systemctl --user restart openos-daemon.service
+systemctl --user restart ghost-daemon.service
 
-# Wait for osd, then start the shell as a chromeless app window.
+# Wait for ghostd, then start the shell as a chromeless app window.
 for i in $(seq 1 50); do
   curl -fs -o /dev/null http://127.0.0.1:7700/ && break
   sleep 0.2
@@ -13,10 +13,10 @@ done
 
 chromium \
   --app=http://127.0.0.1:7700 \
-  --user-data-dir="$HOME/.config/openos-browser" \
+  --user-data-dir="$HOME/.config/ghost-browser" \
   --ozone-platform=wayland \
   --start-maximized \
   --no-first-run \
   --disable-session-crashed-bubble \
   --renderer-process-limit=6 \
-  >/tmp/openos-chromium.log 2>&1 &
+  >/tmp/ghost-chromium.log 2>&1 &

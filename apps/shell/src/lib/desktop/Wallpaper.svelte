@@ -10,7 +10,7 @@
       <circle cx="50" cy="50" r="44" fill="none" stroke="currentColor" stroke-width="1" opacity="0.45" stroke-dasharray="4 7" />
       <circle cx="50" cy="16" r="4.5" fill="currentColor" />
     </svg>
-    <span>OpenOS</span>
+    <span>GhOSt</span>
   </div>
 </div>
 

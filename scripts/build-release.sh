@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
-# Build everything for a Linux arm64 target into dist/openos/.
+# Build everything for a Linux arm64 target into dist/ghost/.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 echo "==> shell"
-pnpm --filter @openos/shell build
+pnpm --filter @ghostos/shell build
 
-echo "==> osd (linux/arm64)"
-(cd daemon && CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o ../dist/openos/osd ./cmd/osd)
+echo "==> ghostd (linux/arm64)"
+(cd daemon && CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o ../dist/ghost/ghostd ./cmd/ghostd)
 
 echo "==> staging"
-mkdir -p dist/openos
-rm -rf dist/openos/shell dist/openos/overlay
-cp -r apps/shell/dist dist/openos/shell
-cp -r os/overlay dist/openos/overlay
-cp os/vm/provision.sh dist/openos/
+mkdir -p dist/ghost
+rm -rf dist/ghost/shell dist/ghost/overlay
+cp -r apps/shell/dist dist/ghost/shell
+cp -r os/overlay dist/ghost/overlay
+cp os/vm/provision.sh dist/ghost/
 
-echo "==> dist/openos ready:"
-du -sh dist/openos/* | sed 's/^/    /'
+echo "==> dist/ghost ready:"
+du -sh dist/ghost/* | sed 's/^/    /'

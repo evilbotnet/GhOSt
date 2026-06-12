@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- OpenOS labwc config.
+<!-- GhOSt labwc config.
      The shell's Chromium app window (app_id chrome-127.0.0.1__-Default) is
      undecorated and maximized so it reads as "the desktop"; browsing windows
      from the same instance stack above it with Chromium's own tab UI.

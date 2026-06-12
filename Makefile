@@ -1,17 +1,17 @@
-# OpenOS top-level entry points
+# GhOSt top-level entry points
 SHELL := /bin/bash
 
 .PHONY: dev shell daemon release deploy-vm clean
 
-# Inner loop on macOS: vite dev server + osd daemon
+# Inner loop on macOS: vite dev server + ghostd daemon
 dev:
 	./scripts/dev.sh
 
 shell:
-	pnpm --filter @openos/shell build
+	pnpm --filter @ghostos/shell build
 
 daemon:
-	cd daemon && go build -o osd ./cmd/osd
+	cd daemon && go build -o ghostd ./cmd/ghostd
 
 # Cross-compile daemon + build shell into dist/ for Linux arm64 targets
 release:
@@ -22,4 +22,4 @@ deploy-vm:
 	./scripts/deploy-vm.sh
 
 clean:
-	rm -rf apps/shell/dist daemon/osd dist
+	rm -rf apps/shell/dist daemon/ghostd dist

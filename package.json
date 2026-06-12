@@ -1,10 +1,10 @@
 {
-  "name": "openos",
+  "name": "ghost",
   "private": true,
   "version": "0.1.0",
   "scripts": {
     "dev": "./scripts/dev.sh",
-    "build": "pnpm --filter @openos/shell build"
+    "build": "pnpm --filter @ghostos/shell build"
   },
   "packageManager": "pnpm@10.28.1"
 }

@@ -1,17 +1,17 @@
-// Typed client for the osd daemon. In production osd serves the shell and
-// injects a session token as window.__OPENOS_TOKEN__; in dev, dev.sh writes
-// the token and osd accepts it via the same mechanism (Vite proxies /api).
+// Typed client for the ghostd daemon. In production ghostd serves the shell and
+// injects a session token as window.__GHOST_TOKEN__; in dev, dev.sh writes
+// the token and ghostd accepts it via the same mechanism (Vite proxies /api).
 declare global {
   interface Window {
-    __OPENOS_TOKEN__?: string;
+    __GHOST_TOKEN__?: string;
   }
 }
 
-let token: string | null = window.__OPENOS_TOKEN__ ?? null;
+let token: string | null = window.__GHOST_TOKEN__ ?? null;
 
 export async function ensureToken(): Promise<string> {
   if (token) return token;
-  // Dev fallback: osd exposes the token to localhost dev origins only.
+  // Dev fallback: ghostd exposes the token to localhost dev origins only.
   const res = await fetch('/api/v1/session/dev-token');
   if (!res.ok) throw new Error('no session token available');
   token = (await res.json()).token as string;

@@ -1,4 +1,4 @@
-// osd — the OpenOS system daemon.
+// ghostd — the GhOSt system daemon.
 //
 // Serves the built shell, exposes the system API (filesystem, terminal,
 // system status, browser windows) over localhost HTTP + one WebSocket,
@@ -15,12 +15,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/openos/osd/internal/browser"
-	"github.com/openos/osd/internal/fsops"
-	"github.com/openos/osd/internal/httpapi"
-	"github.com/openos/osd/internal/system"
-	"github.com/openos/osd/internal/term"
-	"github.com/openos/osd/internal/ws"
+	"github.com/ghostos/ghostd/internal/browser"
+	"github.com/ghostos/ghostd/internal/fsops"
+	"github.com/ghostos/ghostd/internal/httpapi"
+	"github.com/ghostos/ghostd/internal/system"
+	"github.com/ghostos/ghostd/internal/term"
+	"github.com/ghostos/ghostd/internal/ws"
 )
 
 func main() {
@@ -59,10 +59,10 @@ func main() {
 		Terms:     terms,
 		System:    sys,
 		Browser:   browser.New(),
-		OfficeURL: os.Getenv("OPENOS_OFFICE_URL"),
+		OfficeURL: os.Getenv("GHOST_OFFICE_URL"),
 	}
 
-	log.Printf("osd listening on http://%s (dev=%v, static=%q)", *listen, *dev, *staticDir)
+	log.Printf("ghostd listening on http://%s (dev=%v, static=%q)", *listen, *dev, *staticDir)
 	if err := http.ListenAndServe(*listen, srv.Router()); err != nil {
 		log.Fatal(err)
 	}

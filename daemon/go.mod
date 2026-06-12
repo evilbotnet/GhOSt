@@ -1,4 +1,4 @@
-module github.com/openos/osd
+module github.com/ghostos/ghostd
 
 go 1.24
 

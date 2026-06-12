@@ -166,7 +166,7 @@ func (f *FS) Trash(p string) error {
 	if err != nil {
 		return err
 	}
-	trashDir := filepath.Join(f.home, ".openos-trash")
+	trashDir := filepath.Join(f.home, ".ghost-trash")
 	if err := os.MkdirAll(trashDir, 0o700); err != nil {
 		return err
 	}

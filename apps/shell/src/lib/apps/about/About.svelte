@@ -12,13 +12,13 @@
     <circle cx="50" cy="50" r="44" fill="none" stroke="var(--text-low)" stroke-width="1" stroke-dasharray="4 7" />
     <circle cx="50" cy="16" r="6" fill="var(--accent)" />
   </svg>
-  <h1>OpenOS</h1>
-  <p class="tag">An open, web-native operating system.</p>
+  <h1>GhOSt</h1>
+  <p class="tag">Go · html · Operating System · typescript</p>
   <p class="ver">
     shell 0.1.0 · {system.status.platform} · daemon
     {system.online ? 'connected' : 'offline'}
   </p>
-  <p class="foot">Linux + Wayland + Chromium + the web. No overlords.</p>
+  <p class="foot">Linux + Wayland + Chromium + the web. No overlords — just a ghost in the shell.</p>
 </div>
 
 <style>

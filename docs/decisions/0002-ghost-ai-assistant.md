@@ -1,24 +1,26 @@
-# ADR 0002 — "Ghost": the AI layer that makes OpenOS unique
+# ADR 0002 — "Ghost": the AI layer that makes GhOSt unique
 
 Status: accepted (design) · Target: Phase 7 (after the app platform)
 
 ## The thesis
 
-Every OS is bolting AI on as a chat sidebar. OpenOS can do something none of
+Every OS is bolting AI on as a chat sidebar. GhOSt can do something none of
 them can do honestly: **the assistant's tool surface IS the operating
 system's API.** Our daemon already exposes files, terminal, settings, windows,
 Wi-Fi, and app launch as a clean, localhost, permission-gated API — which is
 *exactly* the shape an agentic LLM needs. We don't integrate AI into the OS;
 the OS was accidentally designed as an agent harness.
 
-Name: **Ghost** — the ghost in the shell.
+Naming: the OS is **GhOSt** (**G**o · **h**tml · **O**perating **S**ystem ·
+**t**ypescript); the assistant is **Ghost** — the ghost in the shell that the
+name promises. The daemon `ghostd` hosts it.
 
 ## Architecture
 
 ```
 Shell: Ghost panel (Super+Space command palette / docked sidebar)
   │  WS topic ai.<session> (stream tokens, tool-call cards, confirmations)
-osd: internal/ai — agent loop in Go
+ghostd: internal/ai — agent loop in Go
   │  tools = the daemon's own subsystems:
   │    fs.list/read/write/trash · term.exec (gated) · system.wifi/volume
   │    browser.open · apps.launch · screenshot
@@ -32,7 +34,7 @@ osd: internal/ai — agent loop in Go
   and blocks until the user approves — the same UX pattern as app permission
   prompts. Read-only tools (list files, get status) auto-allow.
 - **Provider is a setting, not a dependency.** BYO Anthropic key (stored 0600
-  in `~/.config/openos/`, never leaves the device except to the API you chose)
+  in `~/.config/ghost/`, never leaves the device except to the API you chose)
   or point it at a local/LAN model. Ghost is **off until configured** — an
   open-source OS must not phone home by default.
 - Model defaults when using the Anthropic provider: `claude-opus-4-8` for

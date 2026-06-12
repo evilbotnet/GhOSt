@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/openos/osd/internal/ws"
+	"github.com/ghostos/ghostd/internal/ws"
 )
 
 type WifiStatus struct {

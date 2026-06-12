@@ -73,7 +73,7 @@
       })
       .catch(() => {
         status = 'dead';
-        term.write('\x1b[31mosd daemon unreachable — run scripts/dev.sh\x1b[0m\r\n');
+        term.write('\x1b[31mghostd daemon unreachable — run scripts/dev.sh\x1b[0m\r\n');
       });
 
     term.onData((data) => {

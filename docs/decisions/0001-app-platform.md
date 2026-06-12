@@ -1,4 +1,4 @@
-# ADR 0001 — App platform: how users install and extend OpenOS
+# ADR 0001 — App platform: how users install and extend GhOSt
 
 Status: accepted (design) · Target: Phase 6
 
@@ -7,7 +7,7 @@ Status: accepted (design) · Target: Phase 6
 A browser with system access becomes an *operating system* when it offers a
 contract to third parties: identity, lifecycle, and permissions for software
 the OS author never saw. ChromeOS has PWAs/Android/Linux-VMs; we need our own
-answer or OpenOS stays an appliance.
+answer or GhOSt stays an appliance.
 
 ## Decision: three layers, cheapest first
 
@@ -17,8 +17,8 @@ it via the daemon as `chromium --app=<url>` — its own compositor window, its
 own taskbar entry, no tabs. Launcher gains "Install web app…". This instantly
 makes the entire web our app catalog, exactly like ChromeOS's PWA story.
 
-**Layer 2 — OpenOS packages (`.osapp`): the real platform.**
-A zip with a manifest, installed to `~/.local/share/openos/apps/<id>/`:
+**Layer 2 — GhOSt packages (`.osapp`): the real platform.**
+A zip with a manifest, installed to `~/.local/share/ghost/apps/<id>/`:
 
 ```json
 {
@@ -32,7 +32,7 @@ A zip with a manifest, installed to `~/.local/share/openos/apps/<id>/`:
 }
 ```
 
-- osd serves installed apps at `http://127.0.0.1:7700/apps/<id>/` and issues
+- ghostd serves installed apps at `http://127.0.0.1:7700/apps/<id>/` and issues
   each app a **scoped token** carrying only its granted permissions — the
   permission model rides on the auth layer we already built (the fs/term/
   system APIs check scopes, not just token validity).
@@ -41,7 +41,7 @@ A zip with a manifest, installed to `~/.local/share/openos/apps/<id>/`:
 - Apps run as in-shell windows (iframe to their own origin-path) and talk to
   the same REST/WS API the built-in apps use — built-ins are just apps with
   all scopes. That symmetry keeps the platform honest.
-- Distribution v1: a git-repo index (name → download URL + hash), `osd`
+- Distribution v1: a git-repo index (name → download URL + hash), `ghostd`
   verifies the hash. A "store" UI is sugar on top, later.
 
 **Layer 3 — It's Debian underneath (already true).**

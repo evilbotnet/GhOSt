@@ -1,7 +1,7 @@
-// OpenOS: allow the kiosk user to manage networking (and later, updates)
+// GhOSt: allow the kiosk user to manage networking (and later, updates)
 // without sudo. Scoped per-action, auditable, no root daemon anywhere.
 polkit.addRule(function (action, subject) {
-  if (subject.user !== "openos") return polkit.Result.NOT_HANDLED;
+  if (subject.user !== "ghost") return polkit.Result.NOT_HANDLED;
 
   if (action.id.indexOf("org.freedesktop.NetworkManager.") === 0) {
     return polkit.Result.YES;

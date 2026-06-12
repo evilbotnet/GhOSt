@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "openos-shell",
+      "name": "ghost-shell",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@openos/shell", "dev"],
+      "runtimeArgs": ["--filter", "@ghostos/shell", "dev"],
       "port": 5173,
       "autoPort": false
     }

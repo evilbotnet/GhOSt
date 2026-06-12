@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
-  title: OpenOS osd API
+  title: GhOSt ghostd API
   version: 0.1.0
   description: >
-    Localhost-only system API served by the osd daemon. All endpoints require
+    Localhost-only system API served by the ghostd daemon. All endpoints require
     the per-session bearer token; the WebSocket authenticates via ?token=.
 servers:
   - url: http://127.0.0.1:7700/api/v1
@@ -27,7 +27,7 @@ paths:
   /fs/rename:
     post: { summary: 'Rename {from, to} (fails if destination exists)', responses: { '200': { description: ok } } }
   /fs/trash:
-    post: { summary: 'Move {path} to ~/.openos-trash', responses: { '200': { description: ok } } }
+    post: { summary: 'Move {path} to ~/.ghost-trash', responses: { '200': { description: ok } } }
   /term:
     post: { summary: 'Create pty session {cols, rows} → {id}; I/O on WS topic term.<id>', responses: { '200': { description: '{id}' } } }
   /term/{id}:
