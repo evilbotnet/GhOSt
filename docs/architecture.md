@@ -66,8 +66,8 @@ instance, `--renderer-process-limit`, capped terminal scrollback.
 | `daemon` | ghostd (Go) — see `internal/*` per subsystem |
 | `packages/protocol` | REST + WS contract |
 | `os/overlay` | rootfs overlay shared by the VM and the Pi image |
-| `os/vm` | provision a Debian 13 ARM64 VM into GhOSt |
-| `os/pi-gen` | flashable Pi 400 image build (Phase 4) |
+| `os/vm` | provision a Debian 13 ARM64 VM into GhOSt (scripted QEMU VM: `scripts/vm-qemu.sh`) |
+| `os/pi` | flashable Pi 400 image build (chroot-customized RPi OS Lite) |
 
 ## Phases
 
