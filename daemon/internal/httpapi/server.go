@@ -17,9 +17,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/ghostos/ghostd/internal/admin"
 	"github.com/ghostos/ghostd/internal/browser"
 	"github.com/ghostos/ghostd/internal/fsops"
 	"github.com/ghostos/ghostd/internal/office"
+	"github.com/ghostos/ghostd/internal/setup"
 	"github.com/ghostos/ghostd/internal/system"
 	"github.com/ghostos/ghostd/internal/term"
 	"github.com/ghostos/ghostd/internal/windows"
@@ -37,6 +39,7 @@ type Server struct {
 	Browser   *browser.Browser
 	Windows   *windows.Manager
 	Office    *office.Manager
+	Setup     *setup.Manager
 }
 
 func (s *Server) Router() http.Handler {
@@ -81,6 +84,14 @@ func (s *Server) Router() http.Handler {
 			authed.Post("/windows/action", s.windowsAction)
 
 			authed.Post("/system/screenshot", s.screenshot)
+
+			authed.Get("/setup/status", s.setupStatus)
+			authed.Get("/setup/timezones", s.setupTimezones)
+			authed.Post("/setup/password", s.setupPassword)
+			authed.Post("/setup/timezone", s.setupTimezone)
+			authed.Post("/setup/hostname", s.setupHostname)
+			authed.Post("/setup/ai", s.setupAI)
+			authed.Post("/setup/complete", s.setupComplete)
 		})
 	})
 
@@ -364,6 +375,79 @@ func (s *Server) screenshot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]string{"path": path})
+}
+
+// ---- first-boot setup ----
+
+func (s *Server) setupStatus(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, map[string]bool{"needed": s.Setup.Needed()})
+}
+
+func (s *Server) setupTimezones(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, s.Setup.Timezones())
+}
+
+// setupPassword sets the kiosk user's password and unlocks sudo for them —
+// the moment the machine becomes the user's (root stays locked; sudo asks
+// for this password).
+func (s *Server) setupPassword(w http.ResponseWriter, r *http.Request) {
+	var req struct{ Password string }
+	if !readJSON(w, r, &req) {
+		return
+	}
+	if err := admin.Call(admin.Request{Action: "set-password", User: "ghost", Password: req.Password}); err != nil {
+		writeErr(w, err)
+		return
+	}
+	if err := admin.Call(admin.Request{Action: "enable-sudo"}); err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, map[string]bool{"ok": true})
+}
+
+func (s *Server) setupTimezone(w http.ResponseWriter, r *http.Request) {
+	var req struct{ Timezone string }
+	if !readJSON(w, r, &req) {
+		return
+	}
+	if err := admin.Call(admin.Request{Action: "set-timezone", Timezone: req.Timezone}); err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, map[string]bool{"ok": true})
+}
+
+func (s *Server) setupHostname(w http.ResponseWriter, r *http.Request) {
+	var req struct{ Hostname string }
+	if !readJSON(w, r, &req) {
+		return
+	}
+	if err := admin.Call(admin.Request{Action: "set-hostname", Hostname: req.Hostname}); err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, map[string]bool{"ok": true})
+}
+
+func (s *Server) setupAI(w http.ResponseWriter, r *http.Request) {
+	var cfg setup.AIConfig
+	if !readJSON(w, r, &cfg) {
+		return
+	}
+	if err := s.Setup.SaveAI(cfg); err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, map[string]bool{"ok": true})
+}
+
+func (s *Server) setupComplete(w http.ResponseWriter, r *http.Request) {
+	if err := s.Setup.Complete(); err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, map[string]bool{"ok": true})
 }
 
 // ---- helpers ----

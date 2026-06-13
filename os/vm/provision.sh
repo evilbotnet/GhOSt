@@ -29,7 +29,9 @@ apt-get install -y --no-install-recommends \
 
 echo "==> ghost user"
 if ! id ghost >/dev/null 2>&1; then
-  useradd -m -s /usr/sbin/nologin ghost
+  useradd -m -s /bin/bash ghost
+else
+  usermod -s /bin/bash ghost
 fi
 usermod -aG video,render,audio,netdev ghost
 loginctl enable-linger ghost
@@ -47,7 +49,8 @@ systemctl daemon-reload
 # Enable the user unit for every user without needing a live session
 # (seat access comes from logind via greetd's PAM session — no seatd).
 systemctl --global enable ghost-daemon.service
-systemctl enable greetd NetworkManager
+systemctl enable ghost-admin greetd NetworkManager
+systemctl restart ghost-admin || systemctl start ghost-admin
 systemctl set-default graphical.target
 
 echo "==> done — reboot to enter GhOSt"

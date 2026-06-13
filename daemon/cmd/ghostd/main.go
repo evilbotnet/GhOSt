@@ -15,10 +15,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ghostos/ghostd/internal/admin"
 	"github.com/ghostos/ghostd/internal/browser"
 	"github.com/ghostos/ghostd/internal/fsops"
 	"github.com/ghostos/ghostd/internal/httpapi"
 	"github.com/ghostos/ghostd/internal/office"
+	"github.com/ghostos/ghostd/internal/setup"
 	"github.com/ghostos/ghostd/internal/system"
 	"github.com/ghostos/ghostd/internal/term"
 	"github.com/ghostos/ghostd/internal/windows"
@@ -26,6 +28,11 @@ import (
 )
 
 func main() {
+	// `ghostd helper` is the privileged sidecar (ghost-admin.service, root).
+	if len(os.Args) > 1 && os.Args[1] == "helper" {
+		log.Fatal(admin.RunHelper())
+	}
+
 	listen := flag.String("listen", "127.0.0.1:7700", "address to bind (localhost only)")
 	tokenFile := flag.String("token-file", "", "path to session token file (created if missing)")
 	staticDir := flag.String("static", "", "directory with the built shell to serve")
@@ -63,6 +70,7 @@ func main() {
 		System:    sys,
 		Browser:   browser.New(),
 		Windows:   winMgr,
+		Setup:     setup.New(),
 		Office: office.New(os.Getenv("GHOST_OFFICE_URL"), func() bool {
 			tops, err := winMgr.List()
 			if err != nil {

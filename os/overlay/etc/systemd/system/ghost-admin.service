@@ -1,0 +1,14 @@
+[Unit]
+Description=GhOSt privileged helper (password/sudo/timezone/hostname)
+After=local-fs.target
+
+[Service]
+ExecStart=/usr/local/bin/ghostd helper
+Restart=always
+RestartSec=1
+# Root on purpose: this is the OS's narrow privilege boundary. The socket
+# (/run/ghost/admin.sock, 0660 root:ghost) accepts four validated verbs —
+# see daemon/internal/admin. ghostd itself stays unprivileged.
+
+[Install]
+WantedBy=multi-user.target

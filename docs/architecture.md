@@ -48,8 +48,12 @@ Development host: any machine; a Debian 13 ARM64 VM stands in for the Pi.
 - Filesystem ops are canonicalized (symlink-aware) and confined to
   `$HOME` + `/media`; deletes go to `~/.ghost-trash`.
 - The daemon never runs as root. Wi-Fi via NetworkManager (nmcli now, D-Bus +
-  polkit rules later), audio via PipeWire, brightness/power via logind —
-  no sudoers entries anywhere.
+  polkit rules later), audio via PipeWire, brightness/power via logind.
+- The four genuinely-root operations (set password, grant sudo, timezone,
+  hostname) go through `ghostd helper` — a validated-verb root sidecar on
+  `/run/ghost/admin.sock` (0660 root:ghost), GhOSt's systemd-timedated.
+- The user's own sudo (password-gated, set in the first-boot wizard) is the
+  deliberate power-user path: this is their machine, not a managed kiosk.
 
 ## Memory budget (Pi 400, 4 GB)
 

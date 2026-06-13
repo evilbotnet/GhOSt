@@ -64,7 +64,7 @@ chroot "$MNT" /usr/bin/env DEBIAN_FRONTEND=noninteractive bash -c "
 
 echo "==> ghost user"
 chroot "$MNT" bash -c "
-  id ghost >/dev/null 2>&1 || useradd -m -s /usr/sbin/nologin ghost
+  id ghost >/dev/null 2>&1 || useradd -m -s /bin/bash ghost
   usermod -aG video,render,audio,netdev ghost
   mkdir -p /var/lib/systemd/linger && touch /var/lib/systemd/linger/ghost
   install -d -o ghost -g ghost -m 0700 /home/ghost/.config /home/ghost/.config/ghost
@@ -79,12 +79,17 @@ chmod +x "$MNT/usr/share/ghost/session"
 install -m 0755 "$DIST/install-cryptpad.sh" "$MNT/usr/local/sbin/ghost-install-office"
 
 echo "==> services"
+systemctl --root="$MNT" enable ghost-admin.service >/dev/null 2>&1
 systemctl --root="$MNT" enable greetd NetworkManager >/dev/null 2>&1 || true
 systemctl --root="$MNT" --global enable ghost-daemon.service
 systemctl --root="$MNT" set-default graphical.target
 # The Pi first-boot user wizard owns tty1 — greetd does now.
 systemctl --root="$MNT" disable userconfig.service >/dev/null 2>&1 || true
 systemctl --root="$MNT" mask userconfig.service >/dev/null 2>&1 || true
+
+echo "==> quiet boot (power on -> GhOSt, not a kernel text wall)"
+sed -i '1 s/$/ quiet loglevel=3 vt.global_cursor_default=0 logo.nologo/' \
+  "$MNT/boot/firmware/cmdline.txt"
 
 echo "==> identity + memory tuning"
 echo ghost > "$MNT/etc/hostname"

@@ -20,13 +20,22 @@ xz -T0 -3 ghost-pi.img                           # ~4x smaller for transport
 
 1. Flash `ghost-pi.img(.xz)` with Raspberry Pi Imager (no customization
    needed — ignore its OS-settings prompts) or `dd`.
-2. Boot the Pi 400. First boot auto-expands the filesystem and lands in the
-   GhOSt desktop with no login prompt.
-3. Settings → Network to join Wi-Fi (NetworkManager + the real onboard
-   radio). Browser/Files/Terminal/Editor work immediately.
-4. Office: open a Terminal in the shell and run
-   `sudo ghost-install-office` once (CryptPad ~500 MB; kept out of the image
-   to keep it lean), then launch Office from the launcher.
+2. Boot the Pi 400 (quiet boot — no kernel text wall). First boot
+   auto-expands the filesystem and opens the **GhOSt setup wizard**:
+   password, timezone, Wi-Fi, and Ghost AI routing (local/LAN/cloud).
+3. After setup the desktop is yours. Browser/Files/Terminal/Editor work
+   immediately.
+4. Office: open a Terminal and run `sudo ghost-install-office` once
+   (CryptPad ~500 MB; kept out of the image to keep it lean).
+
+## Passwords and root
+
+- **There is no root password** — root is locked, like Ubuntu/RPi OS.
+- The wizard's password is for the `ghost` user and gates `sudo` in the
+  Terminal: `sudo raspi-config`, `sudo apt …` all work after setup.
+- Privileged OS actions (password, timezone, hostname) go through
+  `ghost-admin.service`, a four-verb root helper on a unix socket only the
+  ghost user can reach — the daemon itself never runs as root.
 
 ## What the image contains
 
