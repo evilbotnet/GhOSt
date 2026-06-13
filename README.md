@@ -21,34 +21,42 @@ a scripted QEMU VM stands in for the Pi.
 
 ```mermaid
 flowchart TB
-    subgraph session["labwc (Wayland) — greetd autologin, user `ghost`"]
-        subgraph chromium["One Chromium instance"]
-            SHELL["Shell — Svelte 5 + TS<br/>window manager · Files · Terminal · Editor<br/>Settings · launcher · Ghost panel · setup wizard"]
-            WIN["Browser / web-app / Office windows<br/>(real tabs, own taskbar entries)"]
-        end
+    subgraph CHROME["Chromium — one instance, kiosk-pinned"]
+        SHELL["Shell — Svelte 5 + TypeScript<br/>window manager · Files · Terminal · Editor<br/>Settings · launcher · Ghost panel · setup wizard"]
+        WIN["Browser · web-app · Office windows<br/>real tabs, own taskbar entries"]
     end
 
-    subgraph daemon["ghostd — Go system daemon (127.0.0.1:7700, token + origin auth)"]
-        API["REST + one WebSocket<br/>(topics: term.* · system · windows · ai.*)"]
+    subgraph DAEMON["ghostd — Go daemon, localhost 7700, token + origin auth"]
+        API["REST + one WebSocket"]
         FS["fs — home-confined ops, trash"]
         PTY["term — real pty sessions"]
         SYS["system — Wi-Fi · audio · screenshots"]
-        WM2["windows — native toplevels (wlrctl)"]
-        OFF["office — CryptPad on demand<br/>+ sandbox-origin TCP proxy"]
-        WEBAPP["webapps — installed URLs"]
+        WINS["windows — native toplevels via wlrctl"]
+        OFF["office — CryptPad on demand"]
+        WEB["webapps — installed URLs"]
         GHOST["Ghost — agent loop<br/>tools = this API · confirm-gated"]
     end
 
-    HELPER["ghost-admin.service (root)<br/>4 verbs: password · sudo · timezone · hostname<br/>unix socket, ghost-only"]
-    LLM["your model<br/>Ollama / vLLM / llama.cpp (LAN)<br/>or Anthropic API (BYO key)"]
-    OS["Raspberry Pi OS Lite / Debian 13<br/>systemd · NetworkManager · PipeWire · logind"]
+    HELPER["ghost-admin — root helper<br/>4 verbs: password · sudo · timezone · hostname"]
+    LLM["Your model<br/>Ollama · vLLM · llama.cpp on your LAN<br/>or the Anthropic API"]
+    BASE["Raspberry Pi OS Lite / Debian 13<br/>labwc · greetd · systemd · NetworkManager · PipeWire"]
 
-    SHELL <-->|"REST + WS"| API
-    API --- FS & PTY & SYS & WM2 & OFF & WEBAPP & GHOST
-    GHOST <--> LLM
-    daemon -->|"validated verbs"| HELPER
-    daemon --> OS
-    session --> OS
+    SHELL <-->|REST + WS| API
+    API --> FS
+    API --> PTY
+    API --> SYS
+    API --> WINS
+    API --> OFF
+    API --> WEB
+    API --> GHOST
+    GHOST <-->|your endpoint| LLM
+    GHOST -->|confirm card| SHELL
+    DAEMON -->|validated verbs| HELPER
+    CHROME --> BASE
+    DAEMON --> BASE
+
+    classDef ai fill:#e09954,stroke:#8a5e34,color:#1a1208
+    class GHOST,LLM ai
 ```
 
 The trick that makes it an OS and not "a browser with system access": the
@@ -61,15 +69,31 @@ model, and memory budget: [docs/architecture.md](docs/architecture.md) and
 
 ## Ghost — the AI layer
 
-Ghost's tool surface **is the OS API**: list/read/write/move files, open
-browser windows, change settings. Read-only tools run freely; every mutating
-action renders an Allow/Deny card before it executes. Every answer carries a
-provenance badge showing which model produced it.
+Every other OS bolts AI on as a chat sidebar that screenshots the screen.
+GhOSt was, almost by accident, designed as an agent harness: `ghostd` already
+exposes the whole system as a clean, permission-gated localhost API — which is
+*exactly* the tool surface an agentic model needs. So **Ghost's tools ARE the
+OS API**: list/read/write/move files, open browser windows, change settings.
+
+<p align="center">
+  <img src="docs/img/ghost-confirm.png" width="380"
+       alt="Ghost running against a LAN vLLM: provenance badge, tool-call chips, and an Allow/Deny confirmation card before it creates a folder" />
+</p>
+
+Read-only tools run freely; **every mutating action renders an Allow/Deny card
+before it executes** (above: Ghost proposes `make_dir ~/Screenshots`, gated by
+the OS — not the prompt). Every answer carries a **provenance badge** showing
+exactly which model produced it. The screenshot above is a real session driven
+by a self-hosted **Qwen3 on a LAN GPU box** — no cloud, no key, nothing left
+the network.
 
 - **Off by default.** An open-source OS must not phone home.
 - **Bring your own brain:** any OpenAI-compatible endpoint (Ollama, vLLM,
   llama.cpp) or the Anthropic API. Configured in the setup wizard or
   Settings → Ghost AI (`~/.config/ghost/ai.toml`).
+- **Auditable:** the agent loop, tool definitions, and confirmation gate are
+  all in this repo ([daemon/internal/ai](daemon/internal/ai)). You can read
+  exactly what the assistant can touch.
 - Summon with `Super+Space` or the taskbar ring.
 
 ## Quick start
@@ -95,13 +119,19 @@ GHOST_VM=admin@127.0.0.1 GHOST_SSH_PORT=2222 GHOST_SSH_KEY=~/ghost-vm/id_ed25519
 
 ### Raspberry Pi 400 image
 
+**Just want to flash it?** Grab the prebuilt image from
+[**Releases**](https://github.com/evilbotnet/GhOSt/releases/latest), write it
+with Raspberry Pi Imager (skip its OS-settings prompts), and boot — the setup
+wizard takes it from there.
+
+Or build your own:
+
 ```sh
 # inside the VM (or any arm64 Debian), with dist/ghost rsynced over:
 sudo ./build-image.sh /path/to/ghost-dist ghost-pi.img
 ```
 
-Flash with Raspberry Pi Imager and boot — the setup wizard takes it from
-there. Details, the no-root-password FAQ, and on-device debugging:
+Details, the no-root-password FAQ, and on-device debugging:
 [os/pi/README.md](os/pi/README.md).
 
 ## Adding applications
