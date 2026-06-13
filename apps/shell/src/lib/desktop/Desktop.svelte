@@ -2,10 +2,12 @@
   import Wallpaper from './Wallpaper.svelte';
   import Taskbar from './Taskbar.svelte';
   import Launcher from './Launcher.svelte';
+  import GhostPanel from '../ghost/GhostPanel.svelte';
   import WindowFrame from '../wm/Window.svelte';
   import { wm, viewport } from '../wm/wm.svelte';
 
   let launcherOpen = $state(false);
+  let ghostOpen = $state(false);
   let surface = $state<HTMLElement | null>(null);
 
   // Keep the WM's notion of the viewport in sync with the window surface.
@@ -20,9 +22,17 @@
   });
 
   function onKeydown(e: KeyboardEvent) {
-    // Meta/Super opens the launcher, like every desktop since 1995.
+    // Super+Space summons Ghost; bare Super opens the launcher.
+    if (e.key === ' ' && e.metaKey) {
+      e.preventDefault();
+      ghostOpen = !ghostOpen;
+      return;
+    }
     if (e.key === 'Meta' && !e.repeat) launcherOpen = !launcherOpen;
-    if (e.key === 'Escape' && launcherOpen) launcherOpen = false;
+    if (e.key === 'Escape') {
+      if (ghostOpen) ghostOpen = false;
+      else if (launcherOpen) launcherOpen = false;
+    }
   }
 </script>
 
@@ -36,7 +46,8 @@
     {/each}
   </div>
   <Launcher bind:open={launcherOpen} />
-  <Taskbar bind:launcherOpen />
+  <GhostPanel bind:open={ghostOpen} />
+  <Taskbar bind:launcherOpen bind:ghostOpen />
 </div>
 
 <style>

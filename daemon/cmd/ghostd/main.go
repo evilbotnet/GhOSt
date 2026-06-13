@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/ghostos/ghostd/internal/admin"
+	"github.com/ghostos/ghostd/internal/ai"
 	"github.com/ghostos/ghostd/internal/browser"
 	"github.com/ghostos/ghostd/internal/fsops"
 	"github.com/ghostos/ghostd/internal/httpapi"
@@ -23,6 +24,7 @@ import (
 	"github.com/ghostos/ghostd/internal/setup"
 	"github.com/ghostos/ghostd/internal/system"
 	"github.com/ghostos/ghostd/internal/term"
+	"github.com/ghostos/ghostd/internal/webapps"
 	"github.com/ghostos/ghostd/internal/windows"
 	"github.com/ghostos/ghostd/internal/ws"
 )
@@ -58,6 +60,8 @@ func main() {
 	terms := term.NewManager(hub)
 	sys := system.New()
 	winMgr := windows.NewManager(hub)
+	br := browser.New()
+	ghost := ai.NewGhost(hub, ai.NewToolbox(files, sys, br))
 	go sys.PublishLoop(hub, 5*time.Second)
 
 	srv := &httpapi.Server{
@@ -68,9 +72,11 @@ func main() {
 		Files:     files,
 		Terms:     terms,
 		System:    sys,
-		Browser:   browser.New(),
+		Browser:   br,
 		Windows:   winMgr,
 		Setup:     setup.New(),
+		Ghost:     ghost,
+		WebApps:   webapps.New(),
 		Office: office.New(os.Getenv("GHOST_OFFICE_URL"), func() bool {
 			tops, err := winMgr.List()
 			if err != nil {

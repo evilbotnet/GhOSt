@@ -6,14 +6,39 @@
 
   let { win }: { win: Win } = $props();
 
-  type Panel = 'wifi' | 'sound' | 'about';
+  type Panel = 'wifi' | 'sound' | 'ghost' | 'about';
   let panel = $state<Panel>(((win.props.panel as Panel) ?? 'wifi'));
 
   const PANELS: { id: Panel; name: string; icon: string }[] = [
     { id: 'wifi', name: 'Network', icon: 'wifi' },
     { id: 'sound', name: 'Sound', icon: 'volume' },
+    { id: 'ghost', name: 'Ghost AI', icon: 'info' },
     { id: 'about', name: 'About', icon: 'info' },
   ];
+
+  // --- Ghost AI panel ---
+  type AIMode = 'off' | 'lan' | 'cloud';
+  let aiMode = $state<AIMode>('off');
+  let aiURL = $state('http://192.168.1.10:11434/v1');
+  let aiModel = $state('');
+  let aiKey = $state('');
+  let aiSaved = $state(false);
+  let aiConfigured = $state(false);
+
+  $effect(() => {
+    if (panel === 'ghost') {
+      api.get<{ configured: boolean }>('/ai/status')
+        .then((s) => (aiConfigured = s.configured))
+        .catch(() => {});
+    }
+  });
+
+  async function saveAI() {
+    await api.post('/setup/ai', { mode: aiMode, url: aiURL, model: aiModel, key: aiKey });
+    aiSaved = true;
+    aiConfigured = aiMode !== 'off';
+    setTimeout(() => (aiSaved = false), 2000);
+  }
 
   system.start();
   let s = $derived(system.status);
@@ -128,6 +153,40 @@
         />
         <span class="val">{s.volume.percent}%</span>
       </div>
+    {:else if panel === 'ghost'}
+      <header><h2>Ghost AI</h2></header>
+      <p class="hint">
+        Ghost's tools are this OS itself. Choose where its thinking happens —
+        nothing leaves the device except to the endpoint you pick.
+        {aiConfigured ? ' Currently configured.' : ' Not configured yet.'}
+      </p>
+      <div class="modes">
+        <button class="mode" class:picked={aiMode === 'off'} onclick={() => (aiMode = 'off')}>
+          <strong>Off</strong><span>no AI</span>
+        </button>
+        <button class="mode" class:picked={aiMode === 'lan'} onclick={() => (aiMode = 'lan')}>
+          <strong>My own model</strong><span>Ollama / vLLM / llama.cpp</span>
+        </button>
+        <button class="mode" class:picked={aiMode === 'cloud'} onclick={() => (aiMode = 'cloud')}>
+          <strong>Anthropic</strong><span>bring your own key</span>
+        </button>
+      </div>
+      {#if aiMode === 'lan'}
+        <label class="f">Endpoint (OpenAI-compatible)
+          <input bind:value={aiURL} placeholder="http://host:11434/v1" />
+        </label>
+        <label class="f">Model
+          <input bind:value={aiModel} placeholder="qwen3:8b" />
+        </label>
+      {:else if aiMode === 'cloud'}
+        <label class="f">API key
+          <input type="password" bind:value={aiKey} placeholder="sk-ant-…" />
+        </label>
+        <label class="f">Model
+          <input bind:value={aiModel} placeholder="claude-opus-4-8" />
+        </label>
+      {/if}
+      <button class="action" onclick={saveAI}>{aiSaved ? 'Saved ✓' : 'Save'}</button>
     {:else}
       <header><h2>About</h2></header>
       <dl>
@@ -294,4 +353,44 @@
   dt {
     color: var(--text-mid);
   }
+
+  .modes {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .mode {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px;
+    border-radius: 9px;
+    background: var(--ink-2);
+    border: 1px solid var(--line-soft);
+    text-align: left;
+  }
+  .mode:hover { border-color: var(--line); }
+  .mode.picked { border-color: var(--accent); }
+  .mode strong { font-size: 13px; }
+  .mode span { font-size: 11px; color: var(--text-low); }
+  .f {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 12px;
+    color: var(--text-mid);
+    margin-bottom: 12px;
+    max-width: 380px;
+  }
+  .f input {
+    background: var(--ink-2);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 8px 10px;
+    outline: none;
+    color: var(--text-hi);
+    font-size: 13px;
+  }
+  .f input:focus { border-color: var(--accent-dim); }
 </style>

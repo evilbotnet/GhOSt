@@ -2,15 +2,23 @@
   import Icon from './Icon.svelte';
   import { wm } from '../wm/wm.svelte';
   import { apps, openBrowser } from '../apps/registry';
+  import { webApps } from '../api/webapps.svelte';
 
   let { open = $bindable(false) }: { open?: boolean } = $props();
 
   let query = $state('');
   let searchEl = $state<HTMLInputElement | null>(null);
+  let installing = $state(false);
+  let installName = $state('');
+  let installURL = $state('');
+
+  webApps.start();
 
   $effect(() => {
     if (open) {
       query = '';
+      installing = false;
+      void webApps.refresh();
       searchEl?.focus();
     }
   });
@@ -36,10 +44,26 @@
         icon: a.icon,
         run: () => wm.open(a),
       })),
+      ...webApps.list.map((w) => ({
+        id: w.id,
+        name: w.name,
+        icon: w.icon,
+        run: () => webApps.launch(w.id),
+      })),
     ];
     const q = query.trim().toLowerCase();
     return q ? all.filter((e) => e.name.toLowerCase().includes(q)) : all;
   });
+
+  async function doInstall() {
+    if (!installURL.trim()) return;
+    let url = installURL.trim();
+    if (!/^https?:\/\//.test(url)) url = 'https://' + url;
+    await webApps.install(installName.trim(), url);
+    installName = '';
+    installURL = '';
+    installing = false;
+  }
 
   function launch(e: Entry) {
     open = false;
@@ -72,10 +96,24 @@
             <span class="name">{entry.name}</span>
           </button>
         {/each}
-        {#if entries.length === 0}
+        {#if !query}
+          <button class="app add" onclick={() => (installing = true)}>
+            <span class="badge"><Icon name="plus" size={24} /></span>
+            <span class="name">Install web app</span>
+          </button>
+        {/if}
+        {#if entries.length === 0 && query}
           <p class="empty">Nothing matches “{query}”</p>
         {/if}
       </div>
+
+      {#if installing}
+        <form class="install" onsubmit={(e) => { e.preventDefault(); doInstall(); }}>
+          <input bind:value={installURL} placeholder="app URL (e.g. excalidraw.com)" />
+          <input bind:value={installName} placeholder="name (optional)" />
+          <button type="submit" class="go">Install</button>
+        </form>
+      {/if}
     </div>
   </div>
 {/if}
@@ -180,5 +218,36 @@
     color: var(--text-low);
     padding: 18px 0;
     font-size: 13px;
+  }
+  .app.add .badge {
+    background: transparent;
+    border-style: dashed;
+    color: var(--text-low);
+  }
+  .install {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line-soft);
+  }
+  .install input {
+    flex: 1;
+    background: var(--ink-2);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 8px 10px;
+    outline: none;
+    color: var(--text-hi);
+    font-size: 12.5px;
+  }
+  .install input:focus { border-color: var(--accent-dim); }
+  .install .go {
+    padding: 8px 14px;
+    border-radius: 7px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-weight: 600;
+    font-size: 12.5px;
   }
 </style>

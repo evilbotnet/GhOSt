@@ -18,12 +18,14 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/ghostos/ghostd/internal/admin"
+	"github.com/ghostos/ghostd/internal/ai"
 	"github.com/ghostos/ghostd/internal/browser"
 	"github.com/ghostos/ghostd/internal/fsops"
 	"github.com/ghostos/ghostd/internal/office"
 	"github.com/ghostos/ghostd/internal/setup"
 	"github.com/ghostos/ghostd/internal/system"
 	"github.com/ghostos/ghostd/internal/term"
+	"github.com/ghostos/ghostd/internal/webapps"
 	"github.com/ghostos/ghostd/internal/windows"
 	"github.com/ghostos/ghostd/internal/ws"
 )
@@ -40,6 +42,8 @@ type Server struct {
 	Windows   *windows.Manager
 	Office    *office.Manager
 	Setup     *setup.Manager
+	Ghost     *ai.Ghost
+	WebApps   *webapps.Store
 }
 
 func (s *Server) Router() http.Handler {
@@ -84,6 +88,13 @@ func (s *Server) Router() http.Handler {
 			authed.Post("/windows/action", s.windowsAction)
 
 			authed.Post("/system/screenshot", s.screenshot)
+
+			authed.Get("/ai/status", s.aiStatus)
+
+			authed.Get("/apps", s.appsList)
+			authed.Post("/apps/install", s.appsInstall)
+			authed.Post("/apps/launch", s.appsLaunch)
+			authed.Delete("/apps/{id}", s.appsUninstall)
 
 			authed.Get("/setup/status", s.setupStatus)
 			authed.Get("/setup/timezones", s.setupTimezones)
@@ -375,6 +386,56 @@ func (s *Server) screenshot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]string{"path": path})
+}
+
+func (s *Server) aiStatus(w http.ResponseWriter, r *http.Request) {
+	configured, provider := s.Ghost.Configured()
+	writeJSON(w, map[string]any{"configured": configured, "provider": provider})
+}
+
+func (s *Server) appsList(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, s.WebApps.List())
+}
+
+func (s *Server) appsInstall(w http.ResponseWriter, r *http.Request) {
+	var req struct{ Name, URL, Icon string }
+	if !readJSON(w, r, &req) {
+		return
+	}
+	if req.Icon == "" {
+		req.Icon = webapps.IconForURL(req.URL)
+	}
+	app, err := s.WebApps.Install(req.Name, req.URL, req.Icon)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, app)
+}
+
+func (s *Server) appsLaunch(w http.ResponseWriter, r *http.Request) {
+	var req struct{ ID string }
+	if !readJSON(w, r, &req) {
+		return
+	}
+	url, ok := s.WebApps.URLFor(req.ID)
+	if !ok {
+		http.Error(w, "no such app", http.StatusNotFound)
+		return
+	}
+	if err := s.Browser.OpenApp(url); err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, map[string]bool{"ok": true})
+}
+
+func (s *Server) appsUninstall(w http.ResponseWriter, r *http.Request) {
+	if err := s.WebApps.Uninstall(chi.URLParam(r, "id")); err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, map[string]bool{"ok": true})
 }
 
 // ---- first-boot setup ----

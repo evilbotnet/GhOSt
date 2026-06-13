@@ -5,7 +5,10 @@
   import { openBrowser } from '../apps/registry';
   import { nativeWindows } from '../api/windows.svelte';
 
-  let { launcherOpen = $bindable(false) }: { launcherOpen?: boolean } = $props();
+  let {
+    launcherOpen = $bindable(false),
+    ghostOpen = $bindable(false),
+  }: { launcherOpen?: boolean; ghostOpen?: boolean } = $props();
 
   nativeWindows.start();
 
@@ -63,6 +66,19 @@
     {/each}
   </div>
 
+  <button
+    class="ghost-btn"
+    class:active={ghostOpen}
+    aria-label="Ghost assistant"
+    title="Ghost — Super+Space"
+    onclick={() => (ghostOpen = !ghostOpen)}
+  >
+    <svg viewBox="0 0 100 100" width="19" height="19" aria-hidden="true">
+      <circle cx="50" cy="50" r="33" fill="none" stroke="currentColor" stroke-width="8" />
+      <circle cx="50" cy="17" r="11" fill="var(--accent)" stroke="var(--ink-1)" stroke-width="4" />
+    </svg>
+  </button>
+
   <StatusTray />
 </nav>
 
@@ -107,6 +123,20 @@
   .quick:hover {
     background: var(--ink-3);
     color: var(--text-hi);
+  }
+
+  .ghost-btn {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 34px;
+    border-radius: var(--radius-ui);
+    color: var(--text-mid);
+  }
+  .ghost-btn:hover,
+  .ghost-btn.active {
+    background: var(--ink-3);
+    color: var(--accent);
   }
 
   .sep {
