@@ -3,39 +3,140 @@
 **G**o · **h**tml · **O**perating **S**ystem · **t**ypescript — with a ghost
 in the shell.
 
-An open-source, web-native operating system in the spirit of ChromeOS —
-without the Google. A minimal Linux base boots straight into a
-hardware-accelerated Chromium running a desktop shell built entirely in web
-tech (the *html* and *typescript*), with a small Go daemon (`ghostd`, the
-*Go*) providing the system underneath. The resident AI assistant — the
-*ghost* — arrives in Phase 7 ([ADR 0002](docs/decisions/0002-ghost-ai-assistant.md)).
+GhOSt is an open-source, web-native operating system in the spirit of
+ChromeOS, minus the Google. A minimal Linux base boots straight into a
+hardware-accelerated Chromium running a desktop built entirely in web tech,
+a small Go daemon provides the system underneath, and a resident AI
+assistant — **Ghost** — can act on the machine through the same API, gated by
+your confirmation, powered by *your* model (local, LAN, or BYO-key cloud).
 
-Target: Raspberry Pi 400/4 (ARM64, 4 GB). Dev stand-in: Debian 13 ARM64 VM.
+Target hardware: **Raspberry Pi 400/4** (4 GB, ARM64). Develops anywhere;
+a scripted QEMU VM stands in for the Pi.
 
-![stack](docs/architecture.md)
+| First boot | Real browsing | Office (CryptPad) |
+| --- | --- | --- |
+| ![setup wizard](docs/img/oobe.png) | ![browser window](docs/img/browsing.png) | ![cryptdrive](docs/img/office.png) |
 
-## Quick start (dev, any OS)
+## Architecture
+
+```mermaid
+flowchart TB
+    subgraph session["labwc (Wayland) — greetd autologin, user `ghost`"]
+        subgraph chromium["One Chromium instance"]
+            SHELL["Shell — Svelte 5 + TS<br/>window manager · Files · Terminal · Editor<br/>Settings · launcher · Ghost panel · setup wizard"]
+            WIN["Browser / web-app / Office windows<br/>(real tabs, own taskbar entries)"]
+        end
+    end
+
+    subgraph daemon["ghostd — Go system daemon (127.0.0.1:7700, token + origin auth)"]
+        API["REST + one WebSocket<br/>(topics: term.* · system · windows · ai.*)"]
+        FS["fs — home-confined ops, trash"]
+        PTY["term — real pty sessions"]
+        SYS["system — Wi-Fi · audio · screenshots"]
+        WM2["windows — native toplevels (wlrctl)"]
+        OFF["office — CryptPad on demand<br/>+ sandbox-origin TCP proxy"]
+        WEBAPP["webapps — installed URLs"]
+        GHOST["Ghost — agent loop<br/>tools = this API · confirm-gated"]
+    end
+
+    HELPER["ghost-admin.service (root)<br/>4 verbs: password · sudo · timezone · hostname<br/>unix socket, ghost-only"]
+    LLM["your model<br/>Ollama / vLLM / llama.cpp (LAN)<br/>or Anthropic API (BYO key)"]
+    OS["Raspberry Pi OS Lite / Debian 13<br/>systemd · NetworkManager · PipeWire · logind"]
+
+    SHELL <-->|"REST + WS"| API
+    API --- FS & PTY & SYS & WM2 & OFF & WEBAPP & GHOST
+    GHOST <--> LLM
+    daemon -->|"validated verbs"| HELPER
+    daemon --> OS
+    session --> OS
+```
+
+The trick that makes it an OS and not "a browser with system access": the
+shell is a chromeless `--app` window pinned as the desktop by a compositor
+rule, browsing happens in normal windows of the *same* Chromium instance, and
+everything a web page can't do (files, ptys, Wi-Fi, windows, AI tools) goes
+through `ghostd`'s authenticated localhost API. Deeper rationale, security
+model, and memory budget: [docs/architecture.md](docs/architecture.md) and
+[docs/decisions/](docs/decisions/).
+
+## Ghost — the AI layer
+
+Ghost's tool surface **is the OS API**: list/read/write/move files, open
+browser windows, change settings. Read-only tools run freely; every mutating
+action renders an Allow/Deny card before it executes. Every answer carries a
+provenance badge showing which model produced it.
+
+- **Off by default.** An open-source OS must not phone home.
+- **Bring your own brain:** any OpenAI-compatible endpoint (Ollama, vLLM,
+  llama.cpp) or the Anthropic API. Configured in the setup wizard or
+  Settings → Ghost AI (`~/.config/ghost/ai.toml`).
+- Summon with `Super+Space` or the taskbar ring.
+
+## Quick start
+
+### Dev loop (any OS)
 
 ```sh
 pnpm install
-./scripts/dev.sh        # ghostd daemon :7700 + Vite :5173
-open http://localhost:5173
+./scripts/dev.sh        # ghostd :7700 + Vite :5173
+open http://localhost:5173        # add #oobe to walk the setup wizard
 ```
 
-You get the full desktop in a browser tab: window manager, Files (your real
-home dir), Terminal (real pty), Editor, Settings, launcher (also on the
-Meta key), status tray.
-
-## Deploy to the VM / device
+### Dev VM (Apple Silicon)
 
 ```sh
-GHOST_VM=admin@<vm-ip> ./scripts/deploy-vm.sh   # see os/vm/README.md
+curl -fLo ~/ghost-vm/debian-13-arm64.qcow2 \
+  https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-arm64.qcow2
+./scripts/vm-qemu.sh create && ./scripts/vm-qemu.sh start
+GHOST_VM=admin@127.0.0.1 GHOST_SSH_PORT=2222 GHOST_SSH_KEY=~/ghost-vm/id_ed25519 \
+  ./scripts/deploy-vm.sh
+# watch it: vnc://127.0.0.1:5907 · shell: ./scripts/vm-qemu.sh ssh
 ```
 
-## Layout
+### Raspberry Pi 400 image
 
-- `apps/shell` — the desktop (Svelte 5 + Vite)
-- `daemon` — `ghostd`, the Go system daemon (fs, pty, system, browser, ws)
-- `packages/protocol` — REST + WebSocket contract
-- `os/` — overlay, VM provisioning, Pi image build
-- `docs/architecture.md` — decisions, security model, memory budget, phases
+```sh
+# inside the VM (or any arm64 Debian), with dist/ghost rsynced over:
+sudo ./build-image.sh /path/to/ghost-dist ghost-pi.img
+```
+
+Flash with Raspberry Pi Imager and boot — the setup wizard takes it from
+there. Details, the no-root-password FAQ, and on-device debugging:
+[os/pi/README.md](os/pi/README.md).
+
+## Adding applications
+
+Four ways, cheapest first — full guide in [docs/apps.md](docs/apps.md):
+
+1. **Install a web app** (no code): Launcher → *Install web app* → URL. It
+   becomes a chromeless window with its own launcher tile and taskbar entry.
+2. **Write a built-in shell app** (web tech): one Svelte component + one
+   registry entry; talk to the system through the typed `ghostd` API client.
+3. **Linux software**: it's Debian underneath — `sudo apt install gimp` in
+   the Terminal; native Wayland windows join the taskbar automatically.
+4. **`.osapp` packages** (planned): zip + manifest + scoped-permission
+   tokens — the contract for third-party apps
+   ([ADR 0001](docs/decisions/0001-app-platform.md)).
+
+## Repository layout
+
+| Path | What |
+| --- | --- |
+| `apps/shell` | the desktop — Svelte 5 + Vite + TypeScript |
+| `daemon` | `ghostd` — Go: fs, pty, system, windows, office, web apps, Ghost |
+| `packages/protocol` | REST + WebSocket contract |
+| `os/overlay` | rootfs overlay (units, greetd, labwc, Chromium policy) |
+| `os/vm` · `scripts/vm-qemu.sh` | scripted QEMU dev VM + provisioning |
+| `os/pi` | flashable Pi image builder (chroot-customized RPi OS Lite) |
+| `docs/decisions` | ADRs 0001–0004: app platform, Ghost, devkit, as-built |
+
+## Status
+
+Phases 0–7 built and verified (dev loop → VM kiosk → flashable image →
+setup wizard → Ghost against a real LAN vLLM). Open: lock screen, updates
+panel, themes, `.osapp` packages, ghostd-as-model-gateway for terminal AI
+tools (pi, Herdr — [ADR 0003](docs/decisions/0003-devkit-and-model-gateway.md)).
+
+## License
+
+[MIT](LICENSE) © evilbotnet and contributors.

@@ -7,16 +7,19 @@ Development host: any machine; a Debian 13 ARM64 VM stands in for the Pi.
 ## The stack
 
 ```
-┌────────────────────────────────────────────────────────┐
-│  Shell (Svelte 5) — desktop, WM, Files/Terminal/Editor │   web tech
-│  …rendered by Chromium  --app=http://127.0.0.1:7700    │
-├────────────────────────────────────────────────────────┤
-│  ghostd (Go) — fs / pty / system / browser / ws  :7700    │   this repo
-├────────────────────────────────────────────────────────┤
-│  labwc (Wayland) · greetd autologin · PipeWire · NM    │   Debian pkgs
-├────────────────────────────────────────────────────────┤
-│  Raspberry Pi OS Lite (Trixie) / Debian 13, arm64      │
-└────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│  Shell (Svelte 5) — WM, Files/Terminal/Editor/Settings,  │   web tech
+│  Ghost panel, setup wizard                               │
+│  …rendered by Chromium  --app=http://127.0.0.1:7700      │
+├──────────────────────────────────────────────────────────┤
+│  ghostd (Go, :7700) — fs / pty / system / windows /      │   this repo
+│  office / webapps / Ghost agent loop / REST+WS           │
+│     └─ ghost-admin.service (root, 4 validated verbs)     │
+├──────────────────────────────────────────────────────────┤
+│  labwc (Wayland) · greetd autologin · PipeWire · NM      │   Debian pkgs
+├──────────────────────────────────────────────────────────┤
+│  Raspberry Pi OS Lite (Trixie) / Debian 13, arm64        │
+└──────────────────────────────────────────────────────────┘
 ```
 
 ## Key decisions (short form — see git history for the full plan)
@@ -76,15 +79,17 @@ instance, `--renderer-process-limit`, capped terminal scrollback.
 ## Phases
 
 0. ✅ scaffold + shell skeleton in a dev browser
-1. ✅ ghostd + Files/Terminal/Editor (macOS inner loop; all verified)
-2. ⏳ Debian 13 ARM64 VM boots into the kiosk shell (artifacts ready; needs VM)
-3. CryptPad + real Settings (Wi-Fi/audio on the VM)
-4. pi-gen image for the Pi 400
-5. polish: lock screen, updates, themes, notifications, OOBE — incl. the
-   optional devkit (pi, Herdr) install ([ADR 0003](decisions/0003-devkit-and-model-gateway.md))
-6. app platform: installable web apps + `.osapp` packages with scoped
-   permissions ([ADR 0001](decisions/0001-app-platform.md))
-7. **Ghost**: the AI layer — daemon-hosted agent loop whose tools are the
-   OS API itself, configurable local/LAN/cloud router, plus the ghostd
-   OpenAI-compatible gateway for third-party tools
-   ([ADR 0002](decisions/0002-ghost-ai-assistant.md), [ADR 0003](decisions/0003-devkit-and-model-gateway.md))
+1. ✅ ghostd + Files/Terminal/Editor (macOS inner loop)
+2. ✅ scripted QEMU VM boots into the kiosk shell (browser windows, crash
+   recovery, window tracking)
+3. ✅ CryptPad office (on-demand + sandbox-origin proxy) + real Settings
+4. ✅ flashable Pi 400 image (chroot-customized RPi OS Lite) — boots on
+   real hardware
+5. ✅ first-boot wizard, ghost-admin root helper, sudo path, quiet boot
+   — *open:* lock screen, updates panel, themes, notifications
+6. ✅ app platform Layer 1: installable web apps
+   — *open:* `.osapp` scoped packages ([ADR 0001](decisions/0001-app-platform.md))
+7. ✅ **Ghost**: daemon-hosted agent loop, tools = the OS API,
+   confirmation-gated, provider-agnostic (verified against a LAN vLLM)
+   — *open:* ghostd OpenAI-compatible gateway for terminal AI tools
+   ([ADR 0003](decisions/0003-devkit-and-model-gateway.md), as-built: [ADR 0004](decisions/0004-ghost-implementation.md))

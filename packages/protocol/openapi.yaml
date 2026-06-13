@@ -43,7 +43,43 @@ paths:
   /browser/open:
     post: { summary: 'Open native browser window {url} (http/https only)', responses: { '200': { description: ok } } }
   /office/status:
-    get: { summary: Local CryptPad availability, responses: { '200': { description: '{url, running}' }, '404': { description: not configured } } }
+    get: { summary: Local CryptPad availability, responses: { '200': { description: '{available, url, running}' } } }
+  /office/open:
+    post: { summary: Mark an Office window open (starts CryptPad on demand), responses: { '200': { description: ok } } }
+  /office/close:
+    post: { summary: Mark an Office window closed (idle-stops after 10 min), responses: { '200': { description: ok } } }
+  /office/launch:
+    post: { summary: Open CryptPad as a native chromeless app window, responses: { '200': { description: ok } } }
+  /windows:
+    get: { summary: Native Wayland toplevels (browser/app/Linux windows), responses: { '200': { description: 'Toplevel[] {appId, title}' } } }
+  /windows/action:
+    post: { summary: 'Control a native window {appId, title?, action: focus|minimize|maximize|close}', responses: { '200': { description: ok } } }
+  /system/screenshot:
+    post: { summary: Capture the screen to ~/Pictures, responses: { '200': { description: '{path}' } } }
+  /apps:
+    get: { summary: Installed web apps, responses: { '200': { description: 'WebApp[] {id, name, url, icon}' } } }
+  /apps/install:
+    post: { summary: 'Install a URL as an app {name?, url, icon?}', responses: { '200': { description: WebApp } } }
+  /apps/launch:
+    post: { summary: 'Open an installed web app {id} as a chromeless window', responses: { '200': { description: ok } } }
+  /apps/{id}:
+    delete: { summary: Uninstall a web app, responses: { '200': { description: ok } } }
+  /ai/status:
+    get: { summary: 'Ghost routing state', responses: { '200': { description: '{configured, provider}' } } }
+  /setup/status:
+    get: { summary: First-boot wizard needed?, responses: { '200': { description: '{needed}' } } }
+  /setup/timezones:
+    get: { summary: Timezone catalog, responses: { '200': { description: 'string[]' } } }
+  /setup/password:
+    post: { summary: 'Set ghost user password + enable sudo (via root helper) {password}', responses: { '200': { description: ok } } }
+  /setup/timezone:
+    post: { summary: 'Set system timezone (via root helper) {timezone}', responses: { '200': { description: ok } } }
+  /setup/hostname:
+    post: { summary: 'Set hostname (via root helper) {hostname}', responses: { '200': { description: ok } } }
+  /setup/ai:
+    post: { summary: 'Write Ghost routing config {mode: off|lan|cloud, url?, model?, key?}', responses: { '200': { description: ok } } }
+  /setup/complete:
+    post: { summary: Mark first-boot setup finished, responses: { '200': { description: ok } } }
   /session/dev-token:
     get: { summary: 'DEV MODE ONLY: token bootstrap for the Vite origin', responses: { '200': { description: '{token}' } } }
 components:
