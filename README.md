@@ -173,9 +173,15 @@ Four ways, cheapest first — full guide in [docs/apps.md](docs/apps.md):
 ## Status
 
 Phases 0–7 built and verified (dev loop → VM kiosk → flashable image →
-setup wizard → Ghost against a real LAN vLLM). Open: lock screen, updates
-panel, themes, `.osapp` packages, ghostd-as-model-gateway for terminal AI
-tools (pi, Herdr — [ADR 0003](docs/decisions/0003-devkit-and-model-gateway.md)).
+setup wizard → Ghost against a real LAN vLLM). Apps: Files, Terminal, Editor,
+Viewer, Monitor, Hub, Settings, Office, Browser, Ghost. Polish done: themes
+(dark/light + accents), notifications, lock screen, updates panel, soul/hatch,
+skills + tools + MCP with Hub management.
+
+Open: `.osapp` scoped packages ([ADR 0001](docs/decisions/0001-app-platform.md)),
+ghostd-as-model-gateway for terminal AI tools
+([ADR 0003](docs/decisions/0003-devkit-and-model-gateway.md)), MCP
+Streamable-HTTP transport, verified-boot / A-B image updates.
 
 ## License
 
