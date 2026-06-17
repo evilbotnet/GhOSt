@@ -13,9 +13,28 @@ your confirmation, powered by *your* model (local, LAN, or BYO-key cloud).
 Target hardware: **Raspberry Pi 400/4** (4 GB, ARM64). Develops anywhere;
 a scripted QEMU VM stands in for the Pi.
 
-| First boot | Real browsing | Office (CryptPad) |
+| Setup wizard | Light theme | Ghost (AI) acting, gated |
 | --- | --- | --- |
-| ![setup wizard](docs/img/oobe.png) | ![browser window](docs/img/browsing.png) | ![cryptdrive](docs/img/office.png) |
+| ![setup wizard](docs/img/oobe.png) | ![light theme desktop](docs/img/light-theme.png) | ![ghost confirmation card](docs/img/ghost-confirm.png) |
+| **Hub — control center** | **System Monitor** | **Office (CryptPad)** |
+| ![hub](docs/img/hub.png) | ![system monitor](docs/img/monitor.png) | ![cryptdrive](docs/img/office.png) |
+
+## What's inside
+
+- **A real desktop** — window manager, app launcher, taskbar with live tray,
+  notifications, lock screen, **dark/light themes** with accent colors.
+- **Apps** — Files, Terminal (real pty), Editor, **Image/PDF Viewer**,
+  **System Monitor**, **Hub** (control center), Settings, Office (CryptPad),
+  and a real **Browser**. Install any website as its own app.
+- **Ghost, the AI layer** — an assistant whose tools *are* the OS API,
+  every change gated by an Allow/Deny card, powered by **your** model
+  (local · LAN · BYO-key cloud). It has a **soul** you hatch at setup, and is
+  **extensible** with drop-in skills, tools, and MCP servers — no recompile.
+- **Yours** — no root password games (your wizard password unlocks `sudo`),
+  no telemetry, no cloud account. It's Debian underneath: `apt install`
+  anything. MIT-licensed, end to end.
+
+Roadmap & future features: [docs/roadmap.md](docs/roadmap.md).
 
 ## Architecture
 
@@ -178,10 +197,8 @@ Viewer, Monitor, Hub, Settings, Office, Browser, Ghost. Polish done: themes
 (dark/light + accents), notifications, lock screen, updates panel, soul/hatch,
 skills + tools + MCP with Hub management.
 
-Open: `.osapp` scoped packages ([ADR 0001](docs/decisions/0001-app-platform.md)),
-ghostd-as-model-gateway for terminal AI tools
-([ADR 0003](docs/decisions/0003-devkit-and-model-gateway.md)), MCP
-Streamable-HTTP transport, verified-boot / A-B image updates.
+What's next — local AI router + command palette, `.osapp` packages and a
+store, voice, and more: [docs/roadmap.md](docs/roadmap.md).
 
 ## License
 

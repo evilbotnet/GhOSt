@@ -24,6 +24,16 @@
       radial-gradient(60% 50% at 60% 40%, rgba(31, 41, 55, 0.5) 0%, transparent 70%),
       linear-gradient(160deg, #0d1118 0%, #0b0e13 45%, #0e1015 100%);
   }
+  /* Light theme: warm paper with the same copper/slate tints, but gentle. */
+  :global([data-theme='light']) .wallpaper {
+    background:
+      radial-gradient(110% 90% at 78% 110%, rgba(224, 153, 84, 0.18) 0%, transparent 55%),
+      radial-gradient(90% 70% at 12% -10%, rgba(58, 90, 110, 0.12) 0%, transparent 60%),
+      linear-gradient(160deg, #f3efe8 0%, #efece6 50%, #e9e4da 100%);
+  }
+  :global([data-theme='light']) .grain {
+    opacity: 0.03;
+  }
   .grain {
     position: absolute;
     inset: 0;
