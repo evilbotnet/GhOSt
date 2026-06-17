@@ -70,6 +70,12 @@ paths:
     get: { summary: 'Installed Ghost skills', responses: { '200': { description: 'Skill[] {name, description}' } } }
   /ai/tools:
     get: { summary: 'Installed Ghost external tools', responses: { '200': { description: 'ToolInfo[] {name, description, mutating}' } } }
+  /ai/soul:
+    get: { summary: 'Ghost personality (SOUL)', responses: { '200': { description: '{name, body}' } } }
+  /ai/mcp:
+    get: { summary: 'Configured MCP servers + state', responses: { '200': { description: 'MCPServerInfo[] {name, connected, toolCount, error}' } } }
+  /setup/soul:
+    post: { summary: 'Write Ghost personality {name, body} (the hatch step)', responses: { '200': { description: ok } } }
   /setup/status:
     get: { summary: First-boot wizard needed?, responses: { '200': { description: '{needed}' } } }
   /setup/timezones:

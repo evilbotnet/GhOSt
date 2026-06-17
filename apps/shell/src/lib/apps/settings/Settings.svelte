@@ -40,6 +40,23 @@
     setTimeout(() => (aiSaved = false), 2000);
   }
 
+  // --- personality (SOUL) ---
+  let soulName = $state('Ghost');
+  let soulBody = $state('');
+  let soulSaved = $state(false);
+  $effect(() => {
+    if (panel === 'ghost') {
+      api.get<{ name: string; body: string }>('/ai/soul')
+        .then((s) => { soulName = s.name || 'Ghost'; soulBody = s.body || ''; })
+        .catch(() => {});
+    }
+  });
+  async function saveSoul() {
+    await api.post('/setup/soul', { name: soulName.trim() || 'Ghost', body: soulBody });
+    soulSaved = true;
+    setTimeout(() => (soulSaved = false), 2000);
+  }
+
   system.start();
   let s = $derived(system.status);
 
@@ -187,6 +204,17 @@
         </label>
       {/if}
       <button class="action" onclick={saveAI}>{aiSaved ? 'Saved ✓' : 'Save'}</button>
+
+      <h3 class="subhead">Personality</h3>
+      <p class="hint">The assistant's name and soul — injected into every conversation.</p>
+      <label class="f">Name
+        <input bind:value={soulName} maxlength="24" />
+      </label>
+      <label class="f">Persona
+        <textarea bind:value={soulBody} rows="5"
+          placeholder="You are calm, concise, and quietly capable…"></textarea>
+      </label>
+      <button class="action" onclick={saveSoul}>{soulSaved ? 'Saved ✓' : 'Save personality'}</button>
     {:else}
       <header><h2>About</h2></header>
       <dl>
@@ -393,4 +421,21 @@
     font-size: 13px;
   }
   .f input:focus { border-color: var(--accent-dim); }
+  .f textarea {
+    background: var(--ink-2);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 8px 10px;
+    outline: none;
+    color: var(--text-hi);
+    font-size: 13px;
+    font-family: var(--font-ui);
+    resize: vertical;
+  }
+  .f textarea:focus { border-color: var(--accent-dim); }
+  .subhead {
+    font-family: var(--font-display);
+    font-size: 15px;
+    margin: 22px 0 4px;
+  }
 </style>

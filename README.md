@@ -94,10 +94,14 @@ the network.
 - **Auditable:** the agent loop, tool definitions, and confirmation gate are
   all in this repo ([daemon/internal/ai](daemon/internal/ai)). You can read
   exactly what the assistant can touch.
-- **Extensible** — drop-in **skills** (a folder + `SKILL.md`, progressively
-  disclosed) and **tools** (a JSON manifest + any executable), no recompile.
-  A fresh install ships with a `tidy-files` skill and `system_report` /
-  `append_note` tools as working examples. See
+- **It has a soul.** You *hatch* Ghost during setup — pick a temperament
+  (Ghost / Hermes / Sentinel / Sage), name it, add traits. The persona
+  (`~/.config/ghost/SOUL.md`) leads every conversation, and the name you chose
+  replaces "Ghost" throughout the shell.
+- **Extensible four ways, no recompile** — drop-in **skills** (a folder +
+  `SKILL.md`, progressively disclosed), **tools** (a JSON manifest + any
+  executable), and **MCP servers** (a line in `ai.toml` — ghostd is a built-in
+  MCP client). A fresh install ships 7 skills and 2 example tools. See
   [ADR 0005](docs/decisions/0005-ghost-extensibility.md) and
   [docs/apps.md](docs/apps.md#extending-ghost-the-ai-layer).
 - Summon with `Super+Space` or the taskbar ring.

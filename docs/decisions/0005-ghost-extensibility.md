@@ -1,18 +1,30 @@
-# ADR 0005 — Ghost extensibility: skills and tools
+# ADR 0005 — Ghost extensibility: soul, skills, tools, MCP
 
 Status: accepted (built) · Builds on [ADR 0002](0002-ghost-ai-assistant.md)
 
 ## The goal
 
-GhOSt is AI-native: Ghost should grow new abilities without recompiling the
-daemon, the way Claude Code grows via skills and MCP tools. Two orthogonal
-extension points, mirroring the Anthropic model:
+GhOSt is AI-native: Ghost should grow new abilities — and a personality —
+without recompiling the daemon, the way Claude Code grows via skills and MCP.
+Four extension points:
 
+- **Soul** sets *personality* — who the assistant is (name + persona).
 - **Skills** add *expertise* — how to do a multi-step task well.
-- **Tools** add *capabilities* — new actions Ghost can take.
+- **Tools** add *capabilities* — new local actions Ghost can take.
+- **MCP servers** add *ecosystems* — whole toolsets over the Model Context Protocol.
 
-Both are drop-in: a file in a directory, picked up on the next Ghost run.
-Nothing is compiled; nothing restarts.
+All are drop-in: a file in a directory (or a config line), picked up on the
+next Ghost run. Nothing is compiled; nothing restarts.
+
+## Soul (personality, à la Hermes / OpenClaw)
+
+`~/.config/ghost/SOUL.md` — frontmatter `name` + a markdown persona body,
+written by the user when they "hatch" Ghost during onboarding (pick an
+archetype — Ghost / Hermes / Sentinel / Sage — name it, add traits), or any
+time in Settings → Ghost AI. The soul leads the system prompt (identity +
+persona), then the operating rules, then the skills list. The hatched name
+replaces "Ghost" throughout the shell. An unhatched install is just "Ghost"
+with a neutral voice.
 
 ## Skills (expertise, progressively disclosed)
 
@@ -67,18 +79,42 @@ skill is only instructions; it can't do anything its reader's tools can't
 already do (and those mutations are still gated). The lock screen remains the
 real perimeter.
 
-## Why not MCP (yet)
+## MCP servers
 
-MCP is the obvious future for *networked* tool servers and would let GhOSt
-borrow the whole MCP ecosystem. But the manifest+exec model is simpler, has
-zero runtime dependency, and covers the local-capability case that matters on
-a Pi. MCP-server support is a clean future addition: another provider of tool
-defs into the same agent loop. The model gateway in
-[ADR 0003](0003-devkit-and-model-gateway.md) is the complementary half —
+Users add MCP servers in `ai.toml`:
+
+```toml
+[[ai.mcp_servers]]
+name = "filesystem"
+transport = "stdio"
+command = ["npx","-y","@modelcontextprotocol/server-filesystem","/home/ghost"]
+enabled = true
+```
+
+ghostd is itself a minimal MCP client (stdlib JSON-RPC 2.0 over stdio — no SDK
+dependency; the wire protocol is small and stable). On a Ghost run it connects
+each enabled server (cached, reconnected on death — not respawned per call),
+lists its tools, and surfaces them as `mcp__<server>__<tool>`, mutating unless
+the tool's `readOnlyHint` says otherwise — so they ride the **same Allow/Deny
+gate** as everything else. A dead or misconfigured server is surfaced via
+`/ai/mcp` and never breaks the loop. Streamable-HTTP transport is a documented
+TODO; stdio covers the npx-server case that matters today. The model gateway
+in [ADR 0003](0003-devkit-and-model-gateway.md) is the complementary half —
 exposing *Ghost's* providers to other tools.
 
 ## Shipped defaults
 
-A fresh GhOSt boots AI-native: one skill (`tidy-files`) and two tools
-(`system_report`, `append_note`) ship in the image so Ghost is demonstrably
-extensible out of the box and the formats have working examples to copy.
+A fresh GhOSt boots AI-native: seven skills (tidy-files, clean-downloads,
+summarize-folder, organize-screenshots, capture-idea, disk-checkup,
+draft-document) and two tools (`system_report`, `append_note`) ship in the
+image, so Ghost is demonstrably extensible out of the box and every format has
+a working example to copy. MCP servers ship none by default (the user adds
+them) — an open-source OS shouldn't spawn subprocesses nobody asked for.
+
+## Verification
+
+All four verified against a self-hosted Qwen3-35B (LAN vLLM): the model loaded
+and followed a skill (8 files → 5 buckets, each move gated); ran a read-only
+external tool and a mutating one (gated, wrote notes.md); called an MCP tool
+(`mcp__filesystem__list_allowed_directories`) on a live npx-spawned server; and
+the hatched persona (Hermes) carried into the prompt and the shell.

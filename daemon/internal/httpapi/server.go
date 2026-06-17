@@ -92,6 +92,9 @@ func (s *Server) Router() http.Handler {
 			authed.Get("/ai/status", s.aiStatus)
 			authed.Get("/ai/skills", s.aiSkills)
 			authed.Get("/ai/tools", s.aiTools)
+			authed.Get("/ai/soul", s.aiSoul)
+			authed.Get("/ai/mcp", s.aiMCP)
+			authed.Post("/setup/soul", s.setupSoul)
 
 			authed.Get("/apps", s.appsList)
 			authed.Post("/apps/install", s.appsInstall)
@@ -392,7 +395,37 @@ func (s *Server) screenshot(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) aiStatus(w http.ResponseWriter, r *http.Request) {
 	configured, provider := s.Ghost.Configured()
-	writeJSON(w, map[string]any{"configured": configured, "provider": provider})
+	soul := s.Ghost.Soul()
+	writeJSON(w, map[string]any{
+		"configured": configured,
+		"provider":   provider,
+		"name":       soul.Name,
+		"hatched":    soul.Hatched(),
+	})
+}
+
+func (s *Server) aiSoul(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, s.Ghost.Soul())
+}
+
+func (s *Server) aiMCP(w http.ResponseWriter, r *http.Request) {
+	servers := s.Ghost.MCPServers()
+	if servers == nil {
+		servers = []ai.MCPServerInfo{}
+	}
+	writeJSON(w, servers)
+}
+
+func (s *Server) setupSoul(w http.ResponseWriter, r *http.Request) {
+	var req struct{ Name, Body string }
+	if !readJSON(w, r, &req) {
+		return
+	}
+	if err := ai.SaveSoul(req.Name, req.Body); err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, map[string]bool{"ok": true})
 }
 
 func (s *Server) aiSkills(w http.ResponseWriter, r *http.Request) {

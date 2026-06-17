@@ -27,30 +27,39 @@ export interface ToolInfo {
   description: string;
   mutating: boolean;
 }
+export interface MCPInfo {
+  name: string;
+  connected: boolean;
+  toolCount: number;
+  error?: string;
+}
 
 class GhostSession {
   configured = $state(false);
   provider = $state('');
+  name = $state('Ghost');
   entries = $state<Entry[]>([]);
   thinking = $state(false);
   provenance = $state('');
   confirm = $state<ConfirmReq | null>(null);
   skills = $state<SkillInfo[]>([]);
   tools = $state<ToolInfo[]>([]);
+  mcp = $state<MCPInfo[]>([]);
   private id = '';
-  private unsub: (() => void) | null = null;
 
   async start() {
     const s = await api
-      .get<{ configured: boolean; provider: string }>('/ai/status')
-      .catch(() => ({ configured: false, provider: '' }));
+      .get<{ configured: boolean; provider: string; name: string }>('/ai/status')
+      .catch(() => ({ configured: false, provider: '', name: 'Ghost' }));
     this.configured = s.configured;
     this.provider = s.provider;
+    this.name = s.name || 'Ghost';
     api.get<SkillInfo[]>('/ai/skills').then((v) => (this.skills = v)).catch(() => {});
     api.get<ToolInfo[]>('/ai/tools').then((v) => (this.tools = v)).catch(() => {});
+    api.get<MCPInfo[]>('/ai/mcp').then((v) => (this.mcp = v)).catch(() => {});
     if (!this.id) {
       this.id = `s${Date.now().toString(36)}${counter++}`;
-      this.unsub = subscribe(`ai.${this.id}`, (env) => this.onEvent(env.event, env.payload));
+      subscribe(`ai.${this.id}`, (env) => this.onEvent(env.event, env.payload));
     }
   }
 

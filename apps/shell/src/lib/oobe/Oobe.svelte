@@ -4,8 +4,8 @@
 
   let { onDone }: { onDone: () => void } = $props();
 
-  type Step = 'welcome' | 'password' | 'timezone' | 'wifi' | 'ghost' | 'done';
-  const STEPS: Step[] = ['welcome', 'password', 'timezone', 'wifi', 'ghost', 'done'];
+  type Step = 'welcome' | 'password' | 'timezone' | 'wifi' | 'ghost' | 'hatch' | 'done';
+  const STEPS: Step[] = ['welcome', 'password', 'timezone', 'wifi', 'ghost', 'hatch', 'done'];
   let step = $state<Step>('welcome');
   let stepIdx = $derived(STEPS.indexOf(step));
   let busy = $state(false);
@@ -109,6 +109,64 @@
     try {
       await api.post('/setup/ai', { mode: aiMode, url: aiURL, model: aiModel, key: aiKey });
       next();
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'failed';
+    } finally {
+      busy = false;
+    }
+  }
+
+  // --- hatch (personality / SOUL) ---
+  interface Archetype {
+    id: string;
+    name: string;
+    tagline: string;
+    body: string;
+  }
+  const ARCHETYPES: Archetype[] = [
+    {
+      id: 'ghost',
+      name: 'Ghost',
+      tagline: 'calm · concise · capable',
+      body: 'You are calm, concise, and quietly capable. You waste no words, do the work, and report what you did in a sentence. Dry wit is welcome; flattery is not.',
+    },
+    {
+      id: 'hermes',
+      name: 'Hermes',
+      tagline: 'witty · quick · warm',
+      body: 'You are Hermes — quick, clever, and warm, a companion as much as a tool. You bring a light touch and the occasional joke, but you always land the task. You speak like a sharp friend who happens to run the machine.',
+    },
+    {
+      id: 'sentinel',
+      name: 'Sentinel',
+      tagline: 'terse · precise · hacker',
+      body: 'You are Sentinel. Minimal words, maximal signal. You speak like a terminal: lowercase, clipped, exact. No pleasantries, no filler — just the action and the result.',
+    },
+    {
+      id: 'sage',
+      name: 'Sage',
+      tagline: 'patient · warm · teacher',
+      body: 'You are Sage, a patient mentor. You explain the why as you do the what, gently and without condescension, so the user learns the machine as you help them use it.',
+    },
+  ];
+  let arch = $state<Archetype>(ARCHETYPES[0]);
+  let soulName = $state('Ghost');
+  let soulTraits = $state('');
+  let hatched = $state(false);
+
+  function pickArch(a: Archetype) {
+    arch = a;
+    soulName = a.name;
+  }
+
+  async function hatch() {
+    busy = true;
+    try {
+      let body = arch.body;
+      if (soulTraits.trim()) body += '\n\nAlso: ' + soulTraits.trim();
+      await api.post('/setup/soul', { name: soulName.trim() || arch.name, body });
+      hatched = true;
+      setTimeout(next, 900);
     } catch (e) {
       error = e instanceof Error ? e.message : 'failed';
     } finally {
@@ -225,6 +283,26 @@
           <input bind:value={aiModel} placeholder="claude-opus-4-8" />
         </label>
       {/if}
+    {:else if step === 'hatch'}
+      <h2>Hatch your ghost</h2>
+      <p class="sub">
+        Give the assistant a name and a temperament. This is its soul — you can
+        rewrite it any time in Settings → Ghost AI.
+      </p>
+      <div class="modes archetypes">
+        {#each ARCHETYPES as a (a.id)}
+          <button class="mode" class:picked={arch.id === a.id} onclick={() => pickArch(a)}>
+            <strong>{a.name}</strong><span>{a.tagline}</span>
+          </button>
+        {/each}
+      </div>
+      <label>Name
+        <input bind:value={soulName} placeholder="Ghost" maxlength="24" />
+      </label>
+      <label>Anything else about who they are <span class="opt">(optional)</span>
+        <input bind:value={soulTraits} placeholder="e.g. loves dad jokes; British spelling" />
+      </label>
+      {#if hatched}<p class="hatched">✦ {soulName} is awake.</p>{/if}
     {:else}
       <div class="hero">
         <h1>It's yours now.</h1>
@@ -267,6 +345,10 @@
       {:else if step === 'ghost'}
         <button class="cta" disabled={busy} onclick={submitAI}>
           {busy ? 'Saving…' : aiMode === 'off' ? 'Skip for now' : 'Save'}
+        </button>
+      {:else if step === 'hatch'}
+        <button class="cta" disabled={busy} onclick={hatch}>
+          {busy ? 'Hatching…' : hatched ? '✦ awake' : `Hatch ${soulName.trim() || arch.name}`}
         </button>
       {:else}
         <button class="cta" disabled={busy} onclick={finish}>Enter GhOSt</button>
@@ -399,6 +481,19 @@
     grid-template-columns: 1fr 1fr 1fr;
     gap: 8px;
     margin-bottom: 14px;
+  }
+  .modes.archetypes {
+    grid-template-columns: 1fr 1fr;
+  }
+  .opt {
+    color: var(--text-low);
+    font-weight: 400;
+  }
+  .hatched {
+    color: var(--accent);
+    font-size: 13px;
+    text-align: center;
+    margin-top: 4px;
   }
   .mode {
     display: flex;

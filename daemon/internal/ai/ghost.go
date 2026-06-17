@@ -4,17 +4,31 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/ghostos/ghostd/internal/ws"
 )
 
-const systemPrompt = `You are Ghost, the resident assistant inside GhOSt, a web-native operating system. Your tools ARE the operating system's API — files, the browser, system settings. You act on the user's own machine.
+// baseOperatingPrompt is the operational contract, appended after the SOUL
+// identity/persona so personality leads but the rules always hold.
+const baseOperatingPrompt = `Your tools ARE the operating system's API — files, the browser, system settings, and any skills or external tools the user has installed. You act on the user's own machine.
 
-Be concise and direct. When the user asks you to do something, use your tools to actually do it rather than explaining how they could. Explore with read-only tools (list_files, read_file, system_status) freely. For anything that changes the system, the user will be shown a confirmation card before your action runs — so propose the action; don't ask permission in text.
+Be direct and use your tools to actually do things rather than explaining how the user could. Explore with read-only tools (list_files, read_file, system_status) freely. For anything that changes the system, the user is shown a confirmation card before your action runs — so propose the action; don't ask permission in prose.
 
 If a tool returns an error, adapt or report it plainly. When the task is done, give a one-line summary of what you did.`
+
+// buildSystemPrompt assembles SOUL identity + persona, the operating rules,
+// and the available-skills section into the full system prompt.
+func buildSystemPrompt(soul Soul, skills []Skill) string {
+	var b strings.Builder
+	b.WriteString(soulIdentity(soul))
+	b.WriteString("\n")
+	b.WriteString(baseOperatingPrompt)
+	b.WriteString(skillsPromptSection(skills))
+	return b.String()
+}
 
 // Ghost runs the confirmation-gated agent loop in the daemon and streams the
 // trace to the shell over WS topic ai.<session>.
@@ -48,6 +62,12 @@ func (g *Ghost) Configured() (bool, string) {
 // Skills and Tools expose the installed extensions for the shell to list.
 func (g *Ghost) Skills() []Skill      { return LoadSkills() }
 func (g *Ghost) Tools() []ExtToolInfo { return ExtTools() }
+
+// Soul is Ghost's hatched personality (name + persona).
+func (g *Ghost) Soul() Soul { return LoadSoul() }
+
+// MCPServers reports the configured MCP servers and their connection state.
+func (g *Ghost) MCPServers() []MCPServerInfo { return MCPServersInfo() }
 
 func newLLM(p Provider) (LLM, error) {
 	switch p.Type {
@@ -128,11 +148,14 @@ func (g *Ghost) run(id, prompt string) {
 	for n, t := range extTools() {
 		tools[n] = t
 	}
+	for n, t := range mcpTools() {
+		tools[n] = t
+	}
 	defs := make([]ToolDef, 0, len(tools))
 	for _, t := range tools {
 		defs = append(defs, t.def)
 	}
-	system := systemPrompt + skillsPromptSection(skills)
+	system := buildSystemPrompt(LoadSoul(), skills)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()

@@ -47,7 +47,7 @@
   }
 
   let extOpen = $state(false);
-  let extCount = $derived(ghost.skills.length + ghost.tools.length);
+  let extCount = $derived(ghost.skills.length + ghost.tools.length + ghost.mcp.length);
 </script>
 
 {#if open}
@@ -59,7 +59,7 @@
           <circle cx="50" cy="50" r="34" fill="none" stroke="currentColor" stroke-width="7" />
           <circle cx="50" cy="16" r="11" fill="var(--accent)" stroke="var(--ink-1)" stroke-width="4" />
         </svg>
-        Ghost
+        {ghost.name}
       </span>
       {#if ghost.provenance}
         <span class="prov" title="Which model answered">{ghost.provenance}</span>
@@ -132,7 +132,8 @@
         <button class="ext-toggle" onclick={() => (extOpen = !extOpen)}>
           <Icon name="settings" size={12} />
           {ghost.skills.length} skill{ghost.skills.length === 1 ? '' : 's'} ·
-          {ghost.tools.length} tool{ghost.tools.length === 1 ? '' : 's'}
+          {ghost.tools.length + ghost.mcp.reduce((n, m) => n + m.toolCount, 0)} tool{ghost.tools.length === 1 ? '' : 's'}
+          {#if ghost.mcp.length}· {ghost.mcp.length} MCP{/if}
           <Icon name={extOpen ? 'chevron-up' : 'plus'} size={11} />
         </button>
         {#if extOpen}
@@ -149,7 +150,14 @@
                 <span class="ext-name">{t.name}</span>
               </div>
             {/each}
-            <p class="ext-hint">Drop skills in ~/.config/ghost/skills, tools in ~/.config/ghost/tools</p>
+            {#each ghost.mcp as m (m.name)}
+              <div class="ext-row" title={m.error || `${m.toolCount} tools`}>
+                <span class="ext-kind mcp" class:off={!m.connected}>mcp</span>
+                <span class="ext-name">{m.name}</span>
+                <span class="ext-meta">{m.connected ? `${m.toolCount} tools` : 'offline'}</span>
+              </div>
+            {/each}
+            <p class="ext-hint">Skills in ~/.config/ghost/skills · tools in ~/.config/ghost/tools · MCP servers in ai.toml</p>
           </div>
         {/if}
       </div>
@@ -398,9 +406,22 @@
     background: var(--warn);
     color: var(--accent-ink);
   }
+  .ext-kind.mcp {
+    background: var(--ok);
+    color: var(--ink-0);
+  }
+  .ext-kind.mcp.off {
+    background: var(--err);
+    color: #fff;
+  }
   .ext-name {
     font-family: var(--font-mono);
     color: var(--text-hi);
+  }
+  .ext-meta {
+    margin-left: auto;
+    font-size: 10.5px;
+    color: var(--text-low);
   }
   .ext-hint {
     font-size: 10.5px;
