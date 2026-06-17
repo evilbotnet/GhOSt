@@ -2,7 +2,7 @@
   import { api, type DirEntry } from '../../api/client';
   import Icon from '../../desktop/Icon.svelte';
   import { wm, type Win } from '../../wm/wm.svelte';
-  import { getApp } from '../registry';
+  import { getApp, viewerHandles } from '../registry';
 
   let { win }: { win: Win } = $props();
 
@@ -67,6 +67,8 @@
   function open(entry: DirEntry) {
     if (entry.dir) {
       load(entry.path);
+    } else if (viewerHandles(entry.name) || entry.mime.startsWith('image/')) {
+      wm.open(getApp('viewer'), { path: entry.path });
     } else if (entry.mime.startsWith('text/') || entry.size < 2 * 1024 * 1024) {
       wm.open(getApp('editor'), { path: entry.path });
     }

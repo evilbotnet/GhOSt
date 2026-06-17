@@ -130,6 +130,12 @@ func (f *FS) Read(p string) ([]byte, error) {
 	return os.ReadFile(path)
 }
 
+// RawPath returns the safe absolute path for serving file bytes (images,
+// PDFs) — confined to the allowed roots, symlink-resolved.
+func (f *FS) RawPath(p string) (string, error) {
+	return f.resolve(p)
+}
+
 func (f *FS) Write(p string, content []byte) error {
 	path, err := f.resolve(p)
 	if err != nil {

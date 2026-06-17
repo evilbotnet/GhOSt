@@ -159,3 +159,78 @@ func (d *linuxDriver) Screenshot(dir string) (string, error) {
 	}
 	return path, nil
 }
+
+func (d *linuxDriver) Metrics() Metrics {
+	m := Metrics{Processes: []ProcInfo{}}
+	m.CPUPercent = linuxCPUPercent()
+
+	// memory from /proc/meminfo (kB)
+	if data, err := os.ReadFile("/proc/meminfo"); err == nil {
+		var total, avail int
+		for _, line := range strings.Split(string(data), "\n") {
+			f := strings.Fields(line)
+			if len(f) >= 2 {
+				v, _ := strconv.Atoi(f[1])
+				switch f[0] {
+				case "MemTotal:":
+					total = v
+				case "MemAvailable:":
+					avail = v
+				}
+			}
+		}
+		m.MemTotalMB = total / 1024
+		m.MemUsedMB = (total - avail) / 1024
+	}
+
+	used, tot := diskUsage("/")
+	m.DiskUsedGB, m.DiskTotalGB = used, tot
+
+	if data, err := os.ReadFile("/proc/uptime"); err == nil {
+		var secs float64
+		fmt.Sscanf(string(data), "%f", &secs)
+		m.Uptime = "up " + humanDuration(time.Duration(secs)*time.Second)
+	}
+	if data, err := os.ReadFile("/proc/loadavg"); err == nil {
+		f := strings.Fields(string(data))
+		if len(f) >= 3 {
+			m.Load = strings.Join(f[:3], " ")
+		}
+	}
+	m.Processes = topProcesses()
+	return m
+}
+
+func linuxCPUPercent() float64 {
+	read := func() (idle, total uint64) {
+		data, err := os.ReadFile("/proc/stat")
+		if err != nil {
+			return 0, 0
+		}
+		line := strings.SplitN(string(data), "\n", 2)[0]
+		f := strings.Fields(line)
+		for i, v := range f[1:] {
+			n, _ := strconv.ParseUint(v, 10, 64)
+			total += n
+			if i == 3 { // idle
+				idle = n
+			}
+		}
+		return idle, total
+	}
+	i1, t1 := read()
+	time.Sleep(200 * time.Millisecond)
+	i2, t2 := read()
+	if t2 == t1 {
+		return 0
+	}
+	return (1 - float64(i2-i1)/float64(t2-t1)) * 100
+}
+
+func topProcesses() []ProcInfo {
+	out, err := exec.Command("ps", "-eo", "pid,comm,%cpu,rss", "--sort=-%cpu").Output()
+	if err != nil {
+		return []ProcInfo{}
+	}
+	return parsePS(string(out), 6)
+}

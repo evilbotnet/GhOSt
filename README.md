@@ -22,7 +22,7 @@ a scripted QEMU VM stands in for the Pi.
 ```mermaid
 flowchart TB
     subgraph CHROME["Chromium — one instance, kiosk-pinned"]
-        SHELL["Shell — Svelte 5 + TypeScript<br/>window manager · Files · Terminal · Editor<br/>Settings · launcher · Ghost panel · setup wizard"]
+        SHELL["Shell — Svelte 5 + TypeScript<br/>WM · Files · Terminal · Editor · Viewer · Monitor<br/>Hub · Settings · launcher · Ghost panel · setup wizard"]
         WIN["Browser · web-app · Office windows<br/>real tabs, own taskbar entries"]
     end
 
@@ -31,7 +31,7 @@ flowchart TB
         FS["fs — home-confined ops, trash"]
         PTY["term — real pty sessions"]
         SYS["system — Wi-Fi · audio · screenshots"]
-        WINS["windows — native toplevels via wlrctl"]
+        WINS["windows · metrics · raw files"]
         OFF["office — CryptPad on demand"]
         WEB["webapps — installed URLs"]
         GHOST["Ghost — agent loop<br/>tools = this API · confirm-gated"]
@@ -168,7 +168,7 @@ Four ways, cheapest first — full guide in [docs/apps.md](docs/apps.md):
 | `os/overlay` | rootfs overlay (units, greetd, labwc, Chromium policy) |
 | `os/vm` · `scripts/vm-qemu.sh` | scripted QEMU dev VM + provisioning |
 | `os/pi` | flashable Pi image builder (chroot-customized RPi OS Lite) |
-| `docs/decisions` | ADRs 0001–0004: app platform, Ghost, devkit, as-built |
+| `docs/decisions` | ADRs 0001–0005: app platform · Ghost · devkit · gateway · extensibility |
 
 ## Status
 

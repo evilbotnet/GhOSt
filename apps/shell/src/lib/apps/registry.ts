@@ -5,7 +5,16 @@ import Editor from './editor/Editor.svelte';
 import Settings from './settings/Settings.svelte';
 import Office from './office/Office.svelte';
 import About from './about/About.svelte';
+import Viewer from './viewer/Viewer.svelte';
+import Monitor from './monitor/Monitor.svelte';
+import Hub from './hub/Hub.svelte';
 import { api } from '../api/client';
+
+/** Extensions that map a file to the Viewer instead of the Editor. */
+const VIEWER_EXT = /\.(png|jpe?g|gif|webp|svg|bmp|ico|pdf)$/i;
+export function viewerHandles(name: string): boolean {
+  return VIEWER_EXT.test(name);
+}
 
 export const apps: AppDef[] = [
   {
@@ -39,6 +48,32 @@ export const apps: AppDef[] = [
     component: Office,
     defaultSize: { w: 980, h: 640 },
     minSize: { w: 520, h: 360 },
+  },
+  {
+    id: 'hub',
+    name: 'Hub',
+    icon: 'launcher',
+    component: Hub,
+    defaultSize: { w: 820, h: 600 },
+    minSize: { w: 480, h: 360 },
+    single: true,
+  },
+  {
+    id: 'monitor',
+    name: 'Monitor',
+    icon: 'chart',
+    component: Monitor,
+    defaultSize: { w: 720, h: 560 },
+    minSize: { w: 420, h: 340 },
+    single: true,
+  },
+  {
+    id: 'viewer',
+    name: 'Viewer',
+    icon: 'image',
+    component: Viewer,
+    defaultSize: { w: 900, h: 640 },
+    minSize: { w: 400, h: 320 },
   },
   {
     id: 'settings',

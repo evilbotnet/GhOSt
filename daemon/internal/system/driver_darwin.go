@@ -99,3 +99,43 @@ func (d *darwinDriver) Screenshot(dir string) (string, error) {
 	}
 	return path, nil
 }
+
+func (d *darwinDriver) Metrics() Metrics {
+	m := Metrics{Processes: topProcesses()}
+	// overall CPU: sum of per-process %cpu (rough, fine for the dev loop)
+	for _, p := range m.Processes {
+		_ = p
+	}
+	if out, err := exec.Command("sh", "-c", "ps -A -o %cpu | awk '{s+=$1} END {print s}'").Output(); err == nil {
+		m.CPUPercent, _ = strconv.ParseFloat(strings.TrimSpace(string(out)), 64)
+	}
+	if out, err := exec.Command("sysctl", "-n", "hw.memsize").Output(); err == nil {
+		bytes, _ := strconv.ParseInt(strings.TrimSpace(string(out)), 10, 64)
+		m.MemTotalMB = int(bytes / 1024 / 1024)
+	}
+	// used memory ~ total - free (approx via vm_stat page count)
+	if out, err := exec.Command("sh", "-c", "vm_stat | awk '/Pages free/{f=$3} /Pages inactive/{i=$3} END{print f+i}'").Output(); err == nil {
+		freePages, _ := strconv.ParseInt(strings.TrimSpace(strings.Trim(string(out), ".")), 10, 64)
+		freeMB := int(freePages * 16384 / 1024 / 1024) // 16K page size on arm64
+		if m.MemTotalMB > 0 {
+			m.MemUsedMB = m.MemTotalMB - freeMB
+		}
+	}
+	m.DiskUsedGB, m.DiskTotalGB = diskUsage("/")
+	if out, err := exec.Command("uptime").Output(); err == nil {
+		s := string(out)
+		if i := strings.Index(s, "load averages:"); i >= 0 {
+			m.Load = strings.TrimSpace(s[i+len("load averages:"):])
+		}
+	}
+	m.Uptime = "dev"
+	return m
+}
+
+func topProcesses() []ProcInfo {
+	out, err := exec.Command("ps", "-Ao", "pid,comm,%cpu,rss", "-r").Output()
+	if err != nil {
+		return []ProcInfo{}
+	}
+	return parsePS(string(out), 6)
+}

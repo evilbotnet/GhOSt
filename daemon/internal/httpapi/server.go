@@ -65,6 +65,7 @@ func (s *Server) Router() http.Handler {
 			authed.Get("/fs/home", s.fsHome)
 			authed.Get("/fs/list", s.fsList)
 			authed.Get("/fs/read", s.fsRead)
+			authed.Get("/fs/raw", s.fsRaw)
 			authed.Put("/fs/write", s.fsWrite)
 			authed.Post("/fs/mkdir", s.fsMkdir)
 			authed.Post("/fs/rename", s.fsRename)
@@ -74,6 +75,7 @@ func (s *Server) Router() http.Handler {
 			authed.Delete("/term/{id}", s.termClose)
 
 			authed.Get("/system/status", s.systemStatus)
+			authed.Get("/system/metrics", s.systemMetrics)
 			authed.Get("/system/wifi/networks", s.wifiNetworks)
 			authed.Post("/system/wifi/connect", s.wifiConnect)
 			authed.Post("/system/volume", s.setVolume)
@@ -197,6 +199,23 @@ func (s *Server) fsRead(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Write(data)
+}
+
+// fsRaw streams a file's bytes with content-type + range support (images,
+// PDFs) — confined to the allowed roots. Auth is via the bearer token or, for
+// <img>/<iframe> tags that can't set headers, the ?token= query param handled
+// by the auth middleware.
+func (s *Server) fsRaw(w http.ResponseWriter, r *http.Request) {
+	path, err := s.Files.RawPath(r.URL.Query().Get("path"))
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	http.ServeFile(w, r, path)
+}
+
+func (s *Server) systemMetrics(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, s.System.Metrics())
 }
 
 func (s *Server) fsWrite(w http.ResponseWriter, r *http.Request) {

@@ -15,6 +15,11 @@ paths:
       summary: List a directory (confined to allowed roots)
       parameters: [{ name: path, in: query, schema: { type: string } }]
       responses: { '200': { description: '{path, entries: DirEntry[]}' }, '403': { description: outside allowed roots } }
+  /fs/raw:
+    get:
+      summary: Serve raw file bytes (images, PDFs) with content-type + range; ?token= allowed for img/iframe
+      parameters: [{ name: path, in: query, required: true, schema: { type: string } }]
+      responses: { '200': { description: file bytes } }
   /fs/read:
     get:
       summary: Read a text file (8 MB cap)
@@ -34,6 +39,8 @@ paths:
     delete: { summary: Close pty session, responses: { '200': { description: ok } } }
   /system/status:
     get: { summary: Hostname/platform/wifi/battery/volume snapshot, responses: { '200': { description: SystemStatus } } }
+  /system/metrics:
+    get: { summary: 'CPU/mem/disk/uptime/load + top processes', responses: { '200': { description: Metrics } } }
   /system/wifi/networks:
     get: { summary: Scan Wi-Fi networks, responses: { '200': { description: 'WifiNetwork[]' } } }
   /system/wifi/connect:
