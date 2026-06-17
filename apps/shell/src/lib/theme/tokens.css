@@ -51,3 +51,42 @@
     0 0 0 1px var(--line-soft),
     0 8px 28px rgba(0, 0, 0, 0.55);
 }
+
+/* Light theme — warm off-white surfaces, near-black text. The ink ladder is
+   inverted: --ink-0 is the lightest (deepest desktop) and surfaces darken as
+   they raise. Accent props are NOT set here — theme.svelte.ts applies the
+   chosen accent preset at runtime regardless of mode. Shadows are softened. */
+:root[data-theme='light'] {
+  /* ink scale (warm paper, undertone matches the dark warmth) */
+  --ink-0: #efece6; /* desktop deepest (lightest bg) */
+  --ink-1: #f6f4ef; /* window chrome */
+  --ink-2: #fbfaf6; /* surfaces */
+  --ink-3: #efece5; /* raised surfaces, hover */
+  --ink-4: #e2ddd2; /* active, borders strong */
+
+  --line: #d8d2c6; /* hairline borders */
+  --line-soft: #e7e2d8;
+
+  /* text */
+  --text-hi: #1c1a16; /* near-black, warm */
+  --text-mid: #5f5a51;
+  --text-low: #918b80;
+
+  /* status (slightly deepened for contrast on light) */
+  --ok: #5d9447;
+  --warn: #c47d35;
+  --err: #c14a36;
+
+  /* shadows (subtle for light) */
+  --shadow-win:
+    0 0 0 1px var(--line),
+    0 1px 3px rgba(40, 34, 24, 0.1),
+    0 12px 32px rgba(40, 34, 24, 0.14);
+  --shadow-win-focus:
+    0 0 0 1px var(--ink-4),
+    0 2px 6px rgba(40, 34, 24, 0.14),
+    0 18px 48px rgba(40, 34, 24, 0.2);
+  --shadow-pop:
+    0 0 0 1px var(--line),
+    0 6px 22px rgba(40, 34, 24, 0.16);
+}

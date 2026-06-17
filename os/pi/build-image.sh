@@ -54,7 +54,7 @@ echo "==> packages (native arm64 chroot)"
 chroot "$MNT" /usr/bin/env DEBIAN_FRONTEND=noninteractive bash -c "
   apt-get update -qq
   apt-get install -y --no-install-recommends \
-    labwc greetd chromium wlrctl grim curl \
+    labwc greetd chromium wlrctl grim swaylock swayidle curl \
     pipewire pipewire-pulse wireplumber \
     polkitd dbus-user-session zram-tools fontconfig \
     fonts-noto-core fonts-noto-color-emoji

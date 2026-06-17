@@ -21,6 +21,7 @@ import (
 	"github.com/ghostos/ghostd/internal/ai"
 	"github.com/ghostos/ghostd/internal/browser"
 	"github.com/ghostos/ghostd/internal/fsops"
+	"github.com/ghostos/ghostd/internal/kv"
 	"github.com/ghostos/ghostd/internal/office"
 	"github.com/ghostos/ghostd/internal/setup"
 	"github.com/ghostos/ghostd/internal/system"
@@ -44,6 +45,7 @@ type Server struct {
 	Setup     *setup.Manager
 	Ghost     *ai.Ghost
 	WebApps   *webapps.Store
+	Settings  *kv.Store
 }
 
 func (s *Server) Router() http.Handler {
@@ -76,6 +78,8 @@ func (s *Server) Router() http.Handler {
 
 			authed.Get("/system/status", s.systemStatus)
 			authed.Get("/system/metrics", s.systemMetrics)
+			authed.Post("/system/lock", s.systemLock)
+			authed.Get("/system/updates", s.systemUpdates)
 			authed.Get("/system/wifi/networks", s.wifiNetworks)
 			authed.Post("/system/wifi/connect", s.wifiConnect)
 			authed.Post("/system/volume", s.setVolume)
@@ -97,6 +101,12 @@ func (s *Server) Router() http.Handler {
 			authed.Get("/ai/soul", s.aiSoul)
 			authed.Get("/ai/mcp", s.aiMCP)
 			authed.Post("/setup/soul", s.setupSoul)
+			authed.Post("/setup/mcp", s.mcpAdd)
+			authed.Delete("/setup/mcp/{name}", s.mcpRemove)
+
+			authed.Get("/settings", s.settingsGet)
+			authed.Put("/settings", s.settingsPut)
+			authed.Post("/notify", s.notify)
 
 			authed.Get("/apps", s.appsList)
 			authed.Post("/apps/install", s.appsInstall)
@@ -216,6 +226,66 @@ func (s *Server) fsRaw(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) systemMetrics(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, s.System.Metrics())
+}
+
+func (s *Server) systemLock(w http.ResponseWriter, r *http.Request) {
+	if err := s.System.Lock(); err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, map[string]bool{"ok": true})
+}
+
+func (s *Server) systemUpdates(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, s.System.Updates())
+}
+
+func (s *Server) mcpAdd(w http.ResponseWriter, r *http.Request) {
+	var req struct{ Name, Command, Transport, URL string }
+	if !readJSON(w, r, &req) {
+		return
+	}
+	if err := ai.AddMCPServer(req.Name, req.Transport, strings.Fields(req.Command), req.URL); err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, map[string]bool{"ok": true})
+}
+
+func (s *Server) mcpRemove(w http.ResponseWriter, r *http.Request) {
+	if err := ai.RemoveMCPServer(chi.URLParam(r, "name")); err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, map[string]bool{"ok": true})
+}
+
+func (s *Server) settingsGet(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, s.Settings.All())
+}
+
+func (s *Server) settingsPut(w http.ResponseWriter, r *http.Request) {
+	var req struct{ Key, Value string }
+	if !readJSON(w, r, &req) {
+		return
+	}
+	if err := s.Settings.Set(req.Key, req.Value); err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, map[string]bool{"ok": true})
+}
+
+// notify raises a desktop notification (also reachable by server-side events).
+func (s *Server) notify(w http.ResponseWriter, r *http.Request) {
+	var req struct{ Title, Body, Kind string }
+	if !readJSON(w, r, &req) {
+		return
+	}
+	s.Hub.Publish("notify", "show", map[string]string{
+		"title": req.Title, "body": req.Body, "kind": req.Kind,
+	})
+	writeJSON(w, map[string]bool{"ok": true})
 }
 
 func (s *Server) fsWrite(w http.ResponseWriter, r *http.Request) {
@@ -409,6 +479,9 @@ func (s *Server) screenshot(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
+	s.Hub.Publish("notify", "show", map[string]string{
+		"title": "Screenshot saved", "body": filepath.Base(path), "kind": "success",
+	})
 	writeJSON(w, map[string]string{"path": path})
 }
 

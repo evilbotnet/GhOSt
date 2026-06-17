@@ -234,3 +234,24 @@ func topProcesses() []ProcInfo {
 	}
 	return parsePS(string(out), 6)
 }
+
+func (d *linuxDriver) Lock() error {
+	return exec.Command("swaylock", "-f", "--color", "0b0e13").Start()
+}
+
+func (d *linuxDriver) Updates() UpdateInfo {
+	info := UpdateInfo{Packages: []string{}}
+	out, err := exec.Command("apt", "list", "--upgradable").Output()
+	if err != nil {
+		return info
+	}
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		name, _, ok := strings.Cut(line, "/")
+		if !ok || strings.HasPrefix(line, "Listing") {
+			continue
+		}
+		info.Packages = append(info.Packages, name)
+	}
+	info.Count = len(info.Packages)
+	return info
+}

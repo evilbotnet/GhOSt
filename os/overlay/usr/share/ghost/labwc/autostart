@@ -4,3 +4,6 @@
 # of either recovers in about a second without tearing the session down.
 systemctl --user import-environment WAYLAND_DISPLAY XDG_RUNTIME_DIR XDG_CURRENT_DESKTOP
 systemctl --user restart ghost-daemon.service ghost-chromium.service
+
+# Auto-lock after 10 min idle (swaylock authenticates with the ghost password).
+swayidle -w timeout 600 'swaylock -f --color 0b0e13' &

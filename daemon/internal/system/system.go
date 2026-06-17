@@ -66,6 +66,11 @@ type Metrics struct {
 	Processes   []ProcInfo `json:"processes"`
 }
 
+type UpdateInfo struct {
+	Count    int      `json:"count"`
+	Packages []string `json:"packages"`
+}
+
 type Driver interface {
 	Status() Status
 	WifiNetworks() ([]WifiNetwork, error)
@@ -73,6 +78,8 @@ type Driver interface {
 	SetVolume(percent int) error
 	Screenshot(dir string) (string, error)
 	Metrics() Metrics
+	Lock() error
+	Updates() UpdateInfo
 }
 
 type System struct {
@@ -95,6 +102,8 @@ func (s *System) WifiNetworks() ([]WifiNetwork, error) { return s.driver.WifiNet
 func (s *System) WifiConnect(ssid, pw string) error    { return s.driver.WifiConnect(ssid, pw) }
 func (s *System) SetVolume(p int) error                { return s.driver.SetVolume(p) }
 func (s *System) Metrics() Metrics                     { return s.driver.Metrics() }
+func (s *System) Lock() error                          { return s.driver.Lock() }
+func (s *System) Updates() UpdateInfo                  { return s.driver.Updates() }
 
 // Screenshot captures the screen into ~/Pictures and returns the file path.
 func (s *System) Screenshot() (string, error) {

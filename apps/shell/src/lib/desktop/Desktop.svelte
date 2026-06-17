@@ -3,8 +3,12 @@
   import Taskbar from './Taskbar.svelte';
   import Launcher from './Launcher.svelte';
   import GhostPanel from '../ghost/GhostPanel.svelte';
+  import NotifyToasts from '../notify/NotifyToasts.svelte';
   import WindowFrame from '../wm/Window.svelte';
   import { wm, viewport } from '../wm/wm.svelte';
+  import { notifications } from '../notify/notify.svelte';
+
+  notifications.start();
 
   let launcherOpen = $state(false);
   let ghostOpen = $state(false);
@@ -47,6 +51,7 @@
   </div>
   <Launcher bind:open={launcherOpen} />
   <GhostPanel bind:open={ghostOpen} />
+  <NotifyToasts />
   <Taskbar bind:launcherOpen bind:ghostOpen />
 </div>
 

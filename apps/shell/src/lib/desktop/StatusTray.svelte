@@ -5,10 +5,22 @@
   import { system } from '../api/system.svelte';
   import { wm } from '../wm/wm.svelte';
   import { getApp } from '../apps/registry';
+  import NotifyCenter from '../notify/NotifyCenter.svelte';
+  import { notifications } from '../notify/notify.svelte';
 
   system.start();
   let s = $derived(system.status);
   let popOpen = $state(false);
+  let notifyOpen = $state(false);
+
+  async function lock() {
+    popOpen = false;
+    try {
+      await api.post('/system/lock');
+    } catch {
+      notifications.push({ title: 'Lock unavailable', body: 'No screen locker on this host.', kind: 'warn' });
+    }
+  }
 
   function openSettings(panel: string) {
     popOpen = false;
@@ -32,6 +44,22 @@
 
 <div class="tray">
   {#if shotMsg}<span class="toast">{shotMsg}</span>{/if}
+
+  <div class="bell-wrap">
+    <button
+      class="bell"
+      class:active={notifyOpen}
+      aria-label="Notifications"
+      onclick={() => (notifyOpen = !notifyOpen)}
+    >
+      <Icon name="bell" size={16} />
+      {#if notifications.unread > 0}
+        <span class="badge">{notifications.unread > 9 ? '9+' : notifications.unread}</span>
+      {/if}
+    </button>
+    <NotifyCenter bind:open={notifyOpen} />
+  </div>
+
   <button class="status" class:active={popOpen} onclick={() => (popOpen = !popOpen)}>
     {#if s.wifi.available}
       <span class:dim={!s.wifi.connected}><Icon name="wifi" size={15} /></span>
@@ -71,6 +99,10 @@
         <Icon name="camera" size={15} />
         <span>Screenshot</span>
       </button>
+      <button class="row" onclick={lock}>
+        <Icon name="lock" size={15} />
+        <span>Lock screen</span>
+      </button>
       <button class="row" onclick={() => openSettings('about')}>
         <Icon name="settings" size={15} />
         <span>Settings</span>
@@ -91,6 +123,42 @@
     font-size: 11.5px;
     color: var(--accent);
     white-space: nowrap;
+  }
+  .bell-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .bell {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-ui);
+    color: var(--text-mid);
+  }
+  .bell:hover,
+  .bell.active {
+    background: var(--ink-3);
+    color: var(--text-hi);
+  }
+  .badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    min-width: 15px;
+    height: 15px;
+    padding: 0 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    border-radius: 999px;
   }
   .status {
     display: flex;

@@ -63,6 +63,27 @@
   function reveal(path: string) {
     wm.open(getApp('files'), { path });
   }
+
+  // --- MCP server management ---
+  let mcpName = $state('');
+  let mcpCommand = $state('');
+  let mcpBusy = $state(false);
+  async function addMCP() {
+    if (!mcpName.trim() || !mcpCommand.trim()) return;
+    mcpBusy = true;
+    try {
+      await api.post('/setup/mcp', { name: mcpName.trim(), command: mcpCommand.trim() });
+      mcpName = '';
+      mcpCommand = '';
+      setTimeout(refreshExt, 300); // give the server a moment to connect
+    } finally {
+      mcpBusy = false;
+    }
+  }
+  async function removeMCP(name: string) {
+    await api.del(`/setup/mcp/${encodeURIComponent(name)}`);
+    refreshExt();
+  }
 </script>
 
 <div class="hub">
@@ -137,15 +158,23 @@
     {:else if tab === 'mcp'}
       <header><h2>MCP Servers</h2></header>
       <p class="hint">
-        Model Context Protocol servers add whole toolsets. Add them in
-        <code>~/.config/ghost/ai.toml</code> under <code>[[ai.mcp_servers]]</code>.
+        Model Context Protocol servers add whole toolsets to Ghost. Give a name
+        and the launch command (stdio); it connects on the next Ghost run.
       </p>
+      <form class="install" onsubmit={(e) => { e.preventDefault(); addMCP(); }}>
+        <input class="narrow" bind:value={mcpName} placeholder="name" />
+        <input bind:value={mcpCommand} placeholder="npx -y @modelcontextprotocol/server-filesystem ~" />
+        <button class="cta" type="submit" disabled={mcpBusy}>{mcpBusy ? 'Adding…' : 'Add'}</button>
+      </form>
       <div class="rows">
         {#each mcp as m (m.name)}
           <div class="row">
             <span class="dot" class:on={m.connected}></span>
             <span class="rname mono">{m.name}</span>
             <span class="rsub">{m.connected ? `${m.toolCount} tools` : m.error || 'offline'}</span>
+            <button class="del" aria-label="Remove" onclick={() => removeMCP(m.name)}>
+              <Icon name="trash" size={14} />
+            </button>
           </div>
         {/each}
         {#if mcp.length === 0}<p class="empty">No MCP servers configured.</p>{/if}
@@ -228,6 +257,7 @@
     font-size: 13px;
   }
   .install input:focus { border-color: var(--accent-dim); }
+  .install input.narrow { flex: 0 0 130px; }
 
   .rows { display: flex; flex-direction: column; gap: 4px; }
   .row {

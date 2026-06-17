@@ -22,7 +22,7 @@ if uname -r | grep -q cloud; then
   apt-get purge -y "linux-image-*cloud*" || true
 fi
 apt-get install -y --no-install-recommends \
-  labwc greetd chromium wlrctl grim curl \
+  labwc greetd chromium wlrctl grim swaylock swayidle curl \
   pipewire pipewire-pulse wireplumber \
   network-manager polkitd dbus-user-session \
   fonts-noto-core fonts-noto-color-emoji

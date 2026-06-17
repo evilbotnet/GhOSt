@@ -2,19 +2,38 @@
   import Icon from '../../desktop/Icon.svelte';
   import { api, type WifiNetwork } from '../../api/client';
   import { system } from '../../api/system.svelte';
-  import type { Win } from '../../wm/wm.svelte';
+  import { wm, type Win } from '../../wm/wm.svelte';
+  import { getApp } from '../registry';
+  import ThemeControls from './ThemeControls.svelte';
 
   let { win }: { win: Win } = $props();
 
-  type Panel = 'wifi' | 'sound' | 'ghost' | 'about';
+  type Panel = 'wifi' | 'sound' | 'appearance' | 'ghost' | 'updates' | 'about';
   let panel = $state<Panel>(((win.props.panel as Panel) ?? 'wifi'));
 
   const PANELS: { id: Panel; name: string; icon: string }[] = [
     { id: 'wifi', name: 'Network', icon: 'wifi' },
     { id: 'sound', name: 'Sound', icon: 'volume' },
+    { id: 'appearance', name: 'Appearance', icon: 'image' },
     { id: 'ghost', name: 'Ghost AI', icon: 'info' },
+    { id: 'updates', name: 'Updates', icon: 'refresh' },
     { id: 'about', name: 'About', icon: 'info' },
   ];
+
+  // --- updates panel ---
+  let updates = $state<{ count: number; packages: string[] } | null>(null);
+  let checking = $state(false);
+  async function checkUpdates() {
+    checking = true;
+    updates = await api.get<{ count: number; packages: string[] }>('/system/updates').catch(() => null);
+    checking = false;
+  }
+  function openTerminal() {
+    wm.open(getApp('terminal'));
+  }
+  $effect(() => {
+    if (panel === 'updates' && updates === null) void checkUpdates();
+  });
 
   // --- Ghost AI panel ---
   type AIMode = 'off' | 'lan' | 'cloud';
@@ -170,6 +189,30 @@
         />
         <span class="val">{s.volume.percent}%</span>
       </div>
+    {:else if panel === 'appearance'}
+      <header><h2>Appearance</h2></header>
+      <ThemeControls />
+    {:else if panel === 'updates'}
+      <header>
+        <h2>Updates</h2>
+        <button class="action" onclick={checkUpdates} disabled={checking}>
+          <Icon name="refresh" size={13} />
+          {checking ? 'Checking…' : 'Check'}
+        </button>
+      </header>
+      {#if updates === null}
+        <p class="hint">Checking for updates…</p>
+      {:else if updates.count === 0}
+        <p class="hint">Everything is up to date.</p>
+      {:else}
+        <p class="hint">{updates.count} update{updates.count === 1 ? '' : 's'} available.</p>
+        <div class="upd-list">
+          {#each updates.packages as pkg (pkg)}
+            <span class="pkg">{pkg}</span>
+          {/each}
+        </div>
+        <button class="action" onclick={openTerminal}>Update in Terminal (sudo apt upgrade)</button>
+      {/if}
     {:else if panel === 'ghost'}
       <header><h2>Ghost AI</h2></header>
       <p class="hint">
@@ -437,5 +480,22 @@
     font-family: var(--font-display);
     font-size: 15px;
     margin: 22px 0 4px;
+  }
+  .upd-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 4px 0 14px;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+  .pkg {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    background: var(--ink-2);
+    border: 1px solid var(--line-soft);
+    border-radius: 5px;
+    padding: 3px 8px;
+    color: var(--text-mid);
   }
 </style>

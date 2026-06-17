@@ -20,6 +20,7 @@ import (
 	"github.com/ghostos/ghostd/internal/browser"
 	"github.com/ghostos/ghostd/internal/fsops"
 	"github.com/ghostos/ghostd/internal/httpapi"
+	"github.com/ghostos/ghostd/internal/kv"
 	"github.com/ghostos/ghostd/internal/office"
 	"github.com/ghostos/ghostd/internal/setup"
 	"github.com/ghostos/ghostd/internal/system"
@@ -77,6 +78,7 @@ func main() {
 		Setup:     setup.New(),
 		Ghost:     ghost,
 		WebApps:   webapps.New(),
+		Settings:  kv.New(),
 		Office: office.New(os.Getenv("GHOST_OFFICE_URL"), func() bool {
 			tops, err := winMgr.List()
 			if err != nil {

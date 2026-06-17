@@ -2,6 +2,9 @@
   import Desktop from './lib/desktop/Desktop.svelte';
   import Oobe from './lib/oobe/Oobe.svelte';
   import { api } from './lib/api/client';
+  import { theme } from './lib/theme/theme.svelte';
+
+  theme.start();
 
   // First boot: the wizard owns the screen until setup completes.
   // Dev override: open with #oobe to walk the wizard on any host.

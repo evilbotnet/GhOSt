@@ -3,11 +3,12 @@
 package setup
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/ghostos/ghostd/internal/ai"
 )
 
 type Manager struct {
@@ -61,28 +62,26 @@ func (m *Manager) SaveAI(c AIConfig) error {
 	if err := os.MkdirAll(m.configDir, 0o700); err != nil {
 		return err
 	}
-	var b strings.Builder
-	b.WriteString("# Ghost AI routing — see docs/decisions/0002-ghost-ai-assistant.md\n")
-	fmt.Fprintf(&b, "[ai]\nenabled = %v\n\n", c.Mode != "off" && c.Mode != "")
+	enabled := c.Mode != "off" && c.Mode != ""
+	providers := map[string]ai.Provider{}
+	var routing ai.Routing
 	switch c.Mode {
 	case "local", "lan":
-		name := c.Mode
-		fmt.Fprintf(&b, "[ai.providers.%s]\ntype = \"openai-compatible\"\nurl = %q\nmodel = %q\n\n", name, c.URL, c.Model)
-		fmt.Fprintf(&b, "[ai.routing]\nintent = %q\nagent = %q\nfallback = \"\"\n", name, name)
+		providers[c.Mode] = ai.Provider{Type: "openai-compatible", URL: c.URL, Model: c.Model}
+		routing = ai.Routing{Intent: c.Mode, Agent: c.Mode}
 	case "cloud":
 		model := c.Model
 		if model == "" {
 			model = "claude-opus-4-8"
 		}
-		fmt.Fprintf(&b, "[ai.providers.cloud]\ntype = \"anthropic\"\nmodel = %q\nkey_file = \"~/.config/ghost/anthropic.key\"\n\n", model)
-		b.WriteString("[ai.routing]\nintent = \"cloud\"\nagent = \"cloud\"\nfallback = \"\"\n")
+		providers["cloud"] = ai.Provider{Type: "anthropic", Model: model, KeyFile: "~/.config/ghost/anthropic.key"}
+		routing = ai.Routing{Intent: "cloud", Agent: "cloud"}
 		if c.Key != "" {
 			if err := os.WriteFile(filepath.Join(m.configDir, "anthropic.key"), []byte(c.Key+"\n"), 0o600); err != nil {
 				return err
 			}
 		}
-	default:
-		b.WriteString("[ai.routing]\nintent = \"\"\nagent = \"\"\nfallback = \"\"\n")
 	}
-	return os.WriteFile(filepath.Join(m.configDir, "ai.toml"), []byte(b.String()), 0o600)
+	// Single owner of ai.toml — preserves any configured MCP servers.
+	return ai.SaveRouting(enabled, providers, routing)
 }

@@ -4,6 +4,8 @@
 package ai
 
 import (
+	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -61,6 +63,82 @@ func (c Config) AgentProvider() (name string, p Provider, ok bool) {
 	}
 	p, ok = c.Providers[c.Routing.Agent]
 	return c.Routing.Agent, p, ok
+}
+
+// fullConfig is the single in-memory shape of ai.toml. All writers go through
+// loadFull/saveFull so the wizard, Settings, and the Hub's MCP management never
+// clobber each other's sections.
+type fullConfig struct {
+	AI struct {
+		Enabled    bool                `toml:"enabled"`
+		Providers  map[string]Provider `toml:"providers,omitempty"`
+		Routing    Routing             `toml:"routing"`
+		MCPServers []mcpServerConfig   `toml:"mcp_servers,omitempty"`
+	} `toml:"ai"`
+}
+
+func loadFull() fullConfig {
+	var f fullConfig
+	toml.DecodeFile(ConfigPath(), &f)
+	if f.AI.Providers == nil {
+		f.AI.Providers = map[string]Provider{}
+	}
+	return f
+}
+
+func saveFull(f fullConfig) error {
+	if err := os.MkdirAll(filepath.Dir(ConfigPath()), 0o700); err != nil {
+		return err
+	}
+	var buf bytes.Buffer
+	buf.WriteString("# Ghost AI config — managed by ghostd (setup wizard, Settings, Hub)\n")
+	buf.WriteString("# see docs/decisions/0002-ghost-ai-assistant.md and 0005-ghost-extensibility.md\n\n")
+	if err := toml.NewEncoder(&buf).Encode(f); err != nil {
+		return err
+	}
+	return os.WriteFile(ConfigPath(), buf.Bytes(), 0o600)
+}
+
+// SaveRouting writes provider + routing config, preserving MCP servers.
+func SaveRouting(enabled bool, providers map[string]Provider, routing Routing) error {
+	f := loadFull()
+	f.AI.Enabled = enabled
+	f.AI.Providers = providers
+	f.AI.Routing = routing
+	return saveFull(f)
+}
+
+// AddMCPServer adds or replaces an MCP server, preserving everything else.
+func AddMCPServer(name, transport string, command []string, url string) error {
+	if strings.TrimSpace(name) == "" {
+		return fmt.Errorf("server name required")
+	}
+	if transport == "" {
+		transport = "stdio"
+	}
+	srv := mcpServerConfig{Name: name, Transport: transport, Command: command, URL: url, Enabled: true}
+	f := loadFull()
+	for i, s := range f.AI.MCPServers {
+		if s.Name == name {
+			f.AI.MCPServers[i] = srv
+			return saveFull(f)
+		}
+	}
+	f.AI.MCPServers = append(f.AI.MCPServers, srv)
+	return saveFull(f)
+}
+
+// RemoveMCPServer drops an MCP server by name, preserving everything else.
+func RemoveMCPServer(name string) error {
+	f := loadFull()
+	out := f.AI.MCPServers[:0]
+	for _, s := range f.AI.MCPServers {
+		if s.Name != name {
+			out = append(out, s)
+		}
+	}
+	f.AI.MCPServers = out
+	return saveFull(f)
 }
 
 func (p Provider) Key() string {

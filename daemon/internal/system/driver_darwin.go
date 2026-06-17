@@ -139,3 +139,12 @@ func topProcesses() []ProcInfo {
 	}
 	return parsePS(string(out), 6)
 }
+
+func (d *darwinDriver) Lock() error {
+	// Dev stand-in: macOS screensaver lock isn't wired; no-op so the UI flow works.
+	return fmt.Errorf("lock not supported on the dev host")
+}
+
+func (d *darwinDriver) Updates() UpdateInfo {
+	return UpdateInfo{Packages: []string{}} // apt is Linux-only
+}
