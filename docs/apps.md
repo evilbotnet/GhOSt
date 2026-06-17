@@ -79,10 +79,56 @@ an app can only call the API surface the user granted at install. Design in
 [ADR 0001](decisions/0001-app-platform.md); the auth layer it rides on
 already exists.
 
-## Giving Ghost new abilities
+## Extending Ghost (the AI layer)
 
-Ghost's tools live in `daemon/internal/ai/tools.go` — each is a name, a JSON
-schema, a `run` function over the daemon's subsystems, and a `mutating` flag
-(mutating ⇒ Allow/Deny card). Adding a tool there makes it available to every
-configured model, with the confirmation gate enforced by the OS, not the
-prompt.
+Ghost grows the way Claude Code does — drop-in **skills** (expertise) and
+**tools** (capabilities), no recompile. Full design: [ADR 0005](decisions/0005-ghost-extensibility.md).
+
+### A skill — teach Ghost a workflow
+
+A folder with a `SKILL.md` (YAML frontmatter + markdown instructions). Only
+the description sits in the prompt; Ghost calls `load_skill` to read the body
+when a task matches — progressive disclosure.
+
+```
+~/.config/ghost/skills/release-notes/SKILL.md
+```
+```markdown
+---
+name: release-notes
+description: Draft release notes from recent git commits. Use when the user asks for a changelog or release notes.
+---
+1. Run the `git_log` tool (or read the repo) to get recent commits.
+2. Group them into Features / Fixes / Docs.
+3. Write tight, user-facing bullets — no commit hashes.
+```
+
+### A tool — give Ghost a new action
+
+A JSON manifest + an executable. Args arrive as `$GHOST_ARG_<KEY>` (scalars),
+or full JSON on stdin / in `$GHOST_TOOL_ARGS`. `mutating: true` ⇒ Allow/Deny
+card before it runs.
+
+```
+~/.config/ghost/tools/weather.tool.json   +   weather.sh
+```
+```json
+{
+  "name": "weather",
+  "description": "Current weather for a city. Call when the user asks about weather.",
+  "mutating": false,
+  "command": ["sh", "weather.sh"],
+  "inputSchema": { "properties": { "city": {"type":"string"} }, "required": ["city"] }
+}
+```
+
+Both appear in the Ghost panel's extensions footer and are offered to whatever
+model the user configured. Working examples ship in the image — see
+[os/overlay/usr/share/ghost/](../os/overlay/usr/share/ghost/).
+
+### A built-in tool (compiled, for core OS capabilities)
+
+Core tools live in `daemon/internal/ai/tools.go` — a name, JSON schema, a
+`run` over the daemon's subsystems, and a `mutating` flag. Use this tier when
+the capability is part of the OS itself (files, browser, system) rather than a
+user add-on. Same confirmation gate, enforced by the OS, not the prompt.

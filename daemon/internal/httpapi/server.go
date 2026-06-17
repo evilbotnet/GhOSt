@@ -90,6 +90,8 @@ func (s *Server) Router() http.Handler {
 			authed.Post("/system/screenshot", s.screenshot)
 
 			authed.Get("/ai/status", s.aiStatus)
+			authed.Get("/ai/skills", s.aiSkills)
+			authed.Get("/ai/tools", s.aiTools)
 
 			authed.Get("/apps", s.appsList)
 			authed.Post("/apps/install", s.appsInstall)
@@ -391,6 +393,22 @@ func (s *Server) screenshot(w http.ResponseWriter, r *http.Request) {
 func (s *Server) aiStatus(w http.ResponseWriter, r *http.Request) {
 	configured, provider := s.Ghost.Configured()
 	writeJSON(w, map[string]any{"configured": configured, "provider": provider})
+}
+
+func (s *Server) aiSkills(w http.ResponseWriter, r *http.Request) {
+	skills := s.Ghost.Skills()
+	if skills == nil {
+		skills = []ai.Skill{}
+	}
+	writeJSON(w, skills)
+}
+
+func (s *Server) aiTools(w http.ResponseWriter, r *http.Request) {
+	tools := s.Ghost.Tools()
+	if tools == nil {
+		tools = []ai.ExtToolInfo{}
+	}
+	writeJSON(w, tools)
 }
 
 func (s *Server) appsList(w http.ResponseWriter, r *http.Request) {

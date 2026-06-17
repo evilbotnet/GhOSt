@@ -66,6 +66,10 @@ paths:
     delete: { summary: Uninstall a web app, responses: { '200': { description: ok } } }
   /ai/status:
     get: { summary: 'Ghost routing state', responses: { '200': { description: '{configured, provider}' } } }
+  /ai/skills:
+    get: { summary: 'Installed Ghost skills', responses: { '200': { description: 'Skill[] {name, description}' } } }
+  /ai/tools:
+    get: { summary: 'Installed Ghost external tools', responses: { '200': { description: 'ToolInfo[] {name, description, mutating}' } } }
   /setup/status:
     get: { summary: First-boot wizard needed?, responses: { '200': { description: '{needed}' } } }
   /setup/timezones:

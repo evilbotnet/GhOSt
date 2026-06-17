@@ -18,6 +18,16 @@ export interface Entry {
 
 let counter = 0;
 
+export interface SkillInfo {
+  name: string;
+  description: string;
+}
+export interface ToolInfo {
+  name: string;
+  description: string;
+  mutating: boolean;
+}
+
 class GhostSession {
   configured = $state(false);
   provider = $state('');
@@ -25,6 +35,8 @@ class GhostSession {
   thinking = $state(false);
   provenance = $state('');
   confirm = $state<ConfirmReq | null>(null);
+  skills = $state<SkillInfo[]>([]);
+  tools = $state<ToolInfo[]>([]);
   private id = '';
   private unsub: (() => void) | null = null;
 
@@ -34,6 +46,8 @@ class GhostSession {
       .catch(() => ({ configured: false, provider: '' }));
     this.configured = s.configured;
     this.provider = s.provider;
+    api.get<SkillInfo[]>('/ai/skills').then((v) => (this.skills = v)).catch(() => {});
+    api.get<ToolInfo[]>('/ai/tools').then((v) => (this.tools = v)).catch(() => {});
     if (!this.id) {
       this.id = `s${Date.now().toString(36)}${counter++}`;
       this.unsub = subscribe(`ai.${this.id}`, (env) => this.onEvent(env.event, env.payload));

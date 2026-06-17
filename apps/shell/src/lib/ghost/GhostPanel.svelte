@@ -45,6 +45,9 @@
       .map(([k, v]) => `${k}: ${typeof v === 'string' && v.length > 60 ? v.slice(0, 60) + '…' : v}`)
       .join('\n');
   }
+
+  let extOpen = $state(false);
+  let extCount = $derived(ghost.skills.length + ghost.tools.length);
 </script>
 
 {#if open}
@@ -123,6 +126,34 @@
         </div>
       {/if}
     </div>
+
+    {#if ghost.configured && extCount > 0}
+      <div class="ext">
+        <button class="ext-toggle" onclick={() => (extOpen = !extOpen)}>
+          <Icon name="settings" size={12} />
+          {ghost.skills.length} skill{ghost.skills.length === 1 ? '' : 's'} ·
+          {ghost.tools.length} tool{ghost.tools.length === 1 ? '' : 's'}
+          <Icon name={extOpen ? 'chevron-up' : 'plus'} size={11} />
+        </button>
+        {#if extOpen}
+          <div class="ext-list">
+            {#each ghost.skills as sk (sk.name)}
+              <div class="ext-row" title={sk.description}>
+                <span class="ext-kind skill">skill</span>
+                <span class="ext-name">{sk.name}</span>
+              </div>
+            {/each}
+            {#each ghost.tools as t (t.name)}
+              <div class="ext-row" title={t.description}>
+                <span class="ext-kind tool" class:mut={t.mutating}>tool</span>
+                <span class="ext-name">{t.name}</span>
+              </div>
+            {/each}
+            <p class="ext-hint">Drop skills in ~/.config/ghost/skills, tools in ~/.config/ghost/tools</p>
+          </div>
+        {/if}
+      </div>
+    {/if}
 
     <form class="ask" onsubmit={(e) => { e.preventDefault(); submit(); }}>
       <input
@@ -316,6 +347,66 @@
   .allow:hover { background: var(--accent-bright); }
   .deny { background: var(--ink-3); color: var(--text-hi); }
   .deny:hover { background: var(--ink-4); }
+
+  .ext {
+    border-top: 1px solid var(--line-soft);
+  }
+  .ext-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 8px 14px;
+    font-size: 11.5px;
+    color: var(--text-low);
+  }
+  .ext-toggle:hover {
+    color: var(--text-mid);
+    background: var(--ink-2);
+  }
+  .ext-list {
+    padding: 4px 12px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 160px;
+    overflow-y: auto;
+  }
+  .ext-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+  }
+  .ext-kind {
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: var(--ink-0);
+    background: var(--text-low);
+  }
+  .ext-kind.skill {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+  .ext-kind.tool {
+    background: var(--text-mid);
+  }
+  .ext-kind.tool.mut {
+    background: var(--warn);
+    color: var(--accent-ink);
+  }
+  .ext-name {
+    font-family: var(--font-mono);
+    color: var(--text-hi);
+  }
+  .ext-hint {
+    font-size: 10.5px;
+    color: var(--text-low);
+    margin-top: 4px;
+  }
 
   .ask {
     display: flex;

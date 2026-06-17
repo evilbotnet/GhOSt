@@ -45,6 +45,10 @@ func (g *Ghost) Configured() (bool, string) {
 	return ok, name
 }
 
+// Skills and Tools expose the installed extensions for the shell to list.
+func (g *Ghost) Skills() []Skill      { return LoadSkills() }
+func (g *Ghost) Tools() []ExtToolInfo { return ExtTools() }
+
 func newLLM(p Provider) (LLM, error) {
 	switch p.Type {
 	case "anthropic":
@@ -117,14 +121,25 @@ func (g *Ghost) run(id, prompt string) {
 	s.history = append(s.history, Msg{Role: "user", Text: prompt})
 	g.emit(id, "provenance", map[string]string{"provider": name, "model": p.Model})
 
+	// Built-in OS tools + extensions (skills via load_skill, external tools).
 	tools := g.toolbox.tools()
-	defs := g.toolbox.defs()
+	skills := LoadSkills()
+	tools["load_skill"] = loadSkillTool(skills)
+	for n, t := range extTools() {
+		tools[n] = t
+	}
+	defs := make([]ToolDef, 0, len(tools))
+	for _, t := range tools {
+		defs = append(defs, t.def)
+	}
+	system := systemPrompt + skillsPromptSection(skills)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	for step := 0; step < 12; step++ {
 		g.emit(id, "thinking", nil)
-		turn, err := llm.Chat(ctx, systemPrompt, s.history, defs)
+		turn, err := llm.Chat(ctx, system, s.history, defs)
 		if err != nil {
 			g.emit(id, "error", map[string]string{"message": err.Error()})
 			return

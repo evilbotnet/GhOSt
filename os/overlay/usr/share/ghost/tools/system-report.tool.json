@@ -1,0 +1,8 @@
+{
+  "name": "system_report",
+  "description": "Get a quick system health report: uptime, load, memory, and disk usage. Call when the user asks how the machine is doing, or about disk space, memory, or load.",
+  "mutating": false,
+  "command": ["sh", "system-report.sh"],
+  "timeoutSec": 10,
+  "inputSchema": { "properties": {}, "required": [] }
+}

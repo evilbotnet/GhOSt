@@ -1,0 +1,11 @@
+{
+  "name": "append_note",
+  "description": "Append a timestamped note to the user's notes file at ~/Documents/notes.md. Use when the user asks you to jot down, note, remember, or save a quick note.",
+  "mutating": true,
+  "command": ["sh", "append-note.sh"],
+  "timeoutSec": 10,
+  "inputSchema": {
+    "properties": { "text": { "type": "string", "description": "The note text to append" } },
+    "required": ["text"]
+  }
+}
