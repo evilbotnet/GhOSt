@@ -38,45 +38,22 @@ Roadmap & future features: [docs/roadmap.md](docs/roadmap.md).
 
 ## Architecture
 
-```mermaid
-flowchart TB
-    subgraph CHROME["Chromium — one instance, kiosk-pinned"]
-        SHELL["Shell — Svelte 5 + TypeScript<br/>WM · Files · Terminal · Editor · Viewer · Monitor<br/>Hub · Settings · launcher · Ghost panel · setup wizard"]
-        WIN["Browser · web-app · Office windows<br/>real tabs, own taskbar entries"]
-    end
+**[▶ Open the interactive architecture map](docs/architecture.html)** — a
+self-contained HTML page (no build, no network): click any node for what it
+does, and play the two animated flows ("open a file" and "ask Ghost to tidy
+Downloads", confirmation gate and all). Clone and open it in any browser.
 
-    subgraph DAEMON["ghostd — Go daemon, localhost 7700, token + origin auth"]
-        API["REST + one WebSocket"]
-        FS["fs — home-confined ops, trash"]
-        PTY["term — real pty sessions"]
-        SYS["system — Wi-Fi · audio · screenshots"]
-        WINS["windows · metrics · raw files"]
-        OFF["office — CryptPad on demand"]
-        WEB["webapps — installed URLs"]
-        GHOST["Ghost — agent loop<br/>tools = this API · confirm-gated"]
-    end
-
-    HELPER["ghost-admin — root helper<br/>4 verbs: password · sudo · timezone · hostname"]
-    LLM["Your model<br/>Ollama · vLLM · llama.cpp on your LAN<br/>or the Anthropic API"]
-    BASE["Raspberry Pi OS Lite / Debian 13<br/>labwc · greetd · systemd · NetworkManager · PipeWire"]
-
-    SHELL <-->|REST + WS| API
-    API --> FS
-    API --> PTY
-    API --> SYS
-    API --> WINS
-    API --> OFF
-    API --> WEB
-    API --> GHOST
-    GHOST <-->|your endpoint| LLM
-    GHOST -->|confirm card| SHELL
-    DAEMON -->|validated verbs| HELPER
-    CHROME --> BASE
-    DAEMON --> BASE
-
-    classDef ai fill:#e09954,stroke:#8a5e34,color:#1a1208
-    class GHOST,LLM ai
-```
+The shape, in one breath: one kiosk-pinned **Chromium** runs the Svelte
+**shell** (WM · Files · Terminal · Editor · Viewer · Monitor · Hub · Settings ·
+Ghost · setup) plus normal browser/web-app/Office windows; everything a web
+page can't do goes through **ghostd**, a Go daemon on localhost 7700 (REST +
+one WebSocket, token + origin auth) exposing `fs · term · system · windows ·
+office · webapps · gpio`, an OpenAI-compatible **model gateway** (`/v1`), and
+**Ghost** — the confirm-gated agent loop whose tools *are* that API. Ghost
+talks to **your model** (Ollama · vLLM · llama.cpp on your LAN, or the
+Anthropic API); a tiny **ghost-admin** root helper handles four validated verbs
+(password · sudo · timezone · hostname). Underneath: Raspberry Pi OS Lite /
+Debian 13 with labwc · greetd · systemd · NetworkManager · PipeWire.
 
 The trick that makes it an OS and not "a browser with system access": the
 shell is a chromeless `--app` window pinned as the desktop by a compositor

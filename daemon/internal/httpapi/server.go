@@ -44,8 +44,10 @@ type Server struct {
 	Office    *office.Manager
 	Setup     *setup.Manager
 	Ghost     *ai.Ghost
+	Scheduler *ai.Scheduler
 	WebApps   *webapps.Store
 	Settings  *kv.Store
+	Gateway   *ai.Gateway
 }
 
 func (s *Server) Router() http.Handler {
@@ -100,6 +102,10 @@ func (s *Server) Router() http.Handler {
 			authed.Get("/ai/tools", s.aiTools)
 			authed.Get("/ai/soul", s.aiSoul)
 			authed.Get("/ai/mcp", s.aiMCP)
+			authed.Get("/ai/schedules", s.schedulesList)
+			authed.Post("/ai/schedules", s.scheduleSave)
+			authed.Delete("/ai/schedules/{id}", s.scheduleRemove)
+			authed.Post("/ai/schedules/{id}/run", s.scheduleRun)
 			authed.Post("/setup/soul", s.setupSoul)
 			authed.Post("/setup/mcp", s.mcpAdd)
 			authed.Delete("/setup/mcp/{name}", s.mcpRemove)
@@ -121,6 +127,14 @@ func (s *Server) Router() http.Handler {
 			authed.Post("/setup/ai", s.setupAI)
 			authed.Post("/setup/complete", s.setupComplete)
 		})
+	})
+
+	// OpenAI-compatible model gateway (ADR 0003): /v1/* proxies to the user's
+	// configured model. Token-gated like the rest of the API; tools set the
+	// GhOSt session token as their OpenAI API key.
+	r.Route("/v1", func(v chi.Router) {
+		v.Use(s.auth)
+		v.Handle("/*", s.Gateway)
 	})
 
 	if s.StaticDir != "" {
@@ -534,6 +548,36 @@ func (s *Server) aiTools(w http.ResponseWriter, r *http.Request) {
 		tools = []ai.ExtToolInfo{}
 	}
 	writeJSON(w, tools)
+}
+
+func (s *Server) schedulesList(w http.ResponseWriter, r *http.Request) {
+	list := s.Scheduler.List()
+	if list == nil {
+		list = []ai.Schedule{}
+	}
+	writeJSON(w, list)
+}
+
+func (s *Server) scheduleSave(w http.ResponseWriter, r *http.Request) {
+	var sc ai.Schedule
+	if !readJSON(w, r, &sc) {
+		return
+	}
+	writeJSON(w, s.Scheduler.Save(sc))
+}
+
+func (s *Server) scheduleRemove(w http.ResponseWriter, r *http.Request) {
+	s.Scheduler.Remove(chi.URLParam(r, "id"))
+	writeJSON(w, map[string]bool{"ok": true})
+}
+
+func (s *Server) scheduleRun(w http.ResponseWriter, r *http.Request) {
+	result, ok := s.Scheduler.RunNow(chi.URLParam(r, "id"))
+	if !ok {
+		http.Error(w, `{"error":"no such schedule"}`, http.StatusNotFound)
+		return
+	}
+	writeJSON(w, map[string]string{"result": result})
 }
 
 func (s *Server) appsList(w http.ResponseWriter, r *http.Request) {

@@ -11,6 +11,7 @@ export interface Envelope {
 type Handler = (ev: Envelope) => void;
 
 const handlers = new Map<string, Set<Handler>>();
+const openCbs = new Set<() => void>();
 let socket: WebSocket | null = null;
 let backoff = 500;
 let wanted = false;
@@ -31,6 +32,7 @@ async function connect() {
     for (const topic of handlers.keys()) {
       socket!.send(JSON.stringify({ topic, event: 'subscribe' }));
     }
+    openCbs.forEach((cb) => cb());
   };
   socket.onmessage = (e) => {
     if (typeof e.data !== 'string') return;
@@ -75,4 +77,11 @@ export function send(topic: string, event: string, payload?: unknown) {
   if (socket?.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify({ topic, event, payload }));
   }
+}
+
+/** Run fn every time the socket (re)opens — for clients that must re-announce
+ * state to the daemon after a reconnect (e.g. client-tool registration). */
+export function onOpen(fn: () => void): () => void {
+  openCbs.add(fn);
+  return () => openCbs.delete(fn);
 }

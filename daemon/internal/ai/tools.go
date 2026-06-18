@@ -2,9 +2,11 @@ package ai
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/ghostos/ghostd/internal/browser"
 	"github.com/ghostos/ghostd/internal/fsops"
+	"github.com/ghostos/ghostd/internal/gpio"
 	"github.com/ghostos/ghostd/internal/system"
 )
 
@@ -14,10 +16,21 @@ type Toolbox struct {
 	fs      *fsops.FS
 	sys     *system.System
 	browser *browser.Browser
+	gpio    *gpio.GPIO
 }
 
 func NewToolbox(fs *fsops.FS, sys *system.System, br *browser.Browser) *Toolbox {
-	return &Toolbox{fs: fs, sys: sys, browser: br}
+	return &Toolbox{fs: fs, sys: sys, browser: br, gpio: gpio.New()}
+}
+
+func intArg(args map[string]any, k string) int {
+	switch v := args[k].(type) {
+	case float64:
+		return int(v)
+	case int:
+		return v
+	}
+	return 0
 }
 
 type tool struct {
@@ -183,6 +196,65 @@ func (tb *Toolbox) tools() map[string]tool {
 				s := tb.sys.Status()
 				return fmt.Sprintf("host=%s platform=%s wifi=%v(%s) battery=%d%% volume=%d%%",
 					s.Hostname, s.Platform, s.Wifi.Connected, s.Wifi.SSID, s.Battery.Percent, s.Volume.Percent), nil
+			},
+		},
+		"gpio_list": {
+			def: ToolDef{
+				Name:        "gpio_list",
+				Description: "List the board's GPIO lines (BCM offset, name, and whether each is driven as an output) so you can pick a pin. Read-only.",
+				Properties:  map[string]any{},
+			},
+			run: func(a map[string]any) (string, error) {
+				if !tb.gpio.Available() {
+					return "no GPIO on this board", nil
+				}
+				lines, err := tb.gpio.Lines()
+				if err != nil {
+					return "", err
+				}
+				var b strings.Builder
+				for _, l := range lines {
+					state := "input"
+					if l.Output {
+						state = fmt.Sprintf("output=%d", l.Value)
+					}
+					fmt.Fprintf(&b, "GPIO%d %s %s\n", l.Offset, l.Name, state)
+				}
+				return b.String(), nil
+			},
+		},
+		"gpio_read": {
+			def: ToolDef{
+				Name:        "gpio_read",
+				Description: "Read the level (0 or 1) of a GPIO pin by BCM number. Read-only — use for buttons/sensors.",
+				Properties:  map[string]any{"pin": map[string]any{"type": "integer", "description": "BCM pin number"}},
+				Required:    []string{"pin"},
+			},
+			run: func(a map[string]any) (string, error) {
+				v, err := tb.gpio.Read(intArg(a, "pin"))
+				if err != nil {
+					return "", err
+				}
+				return fmt.Sprintf("GPIO%d = %d", intArg(a, "pin"), v), nil
+			},
+		},
+		"gpio_set": {
+			mutating: true,
+			def: ToolDef{
+				Name:        "gpio_set",
+				Description: "Drive a GPIO output pin high (1) or low (0); it stays asserted until changed. Mutating — the user must confirm. Use for LEDs/relays; blink by setting, waiting, and setting again.",
+				Properties: map[string]any{
+					"pin":   map[string]any{"type": "integer", "description": "BCM pin number"},
+					"value": map[string]any{"type": "integer", "description": "1 = high, 0 = low"},
+				},
+				Required: []string{"pin", "value"},
+			},
+			run: func(a map[string]any) (string, error) {
+				pin, val := intArg(a, "pin"), intArg(a, "value")
+				if err := tb.gpio.Set(pin, val); err != nil {
+					return "", err
+				}
+				return fmt.Sprintf("GPIO%d driven %d", pin, val), nil
 			},
 		},
 	}

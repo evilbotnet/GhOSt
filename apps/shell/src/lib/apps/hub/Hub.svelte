@@ -11,7 +11,7 @@
 
   let { win: _win }: { win: Win } = $props();
 
-  type Tab = 'apps' | 'skills' | 'tools' | 'mcp' | 'ghost';
+  type Tab = 'apps' | 'skills' | 'tools' | 'mcp' | 'schedules' | 'ghost';
   let tab = $state<Tab>('apps');
 
   const TABS: { id: Tab; name: string; icon: string }[] = [
@@ -19,6 +19,7 @@
     { id: 'skills', name: 'Skills', icon: 'editor' },
     { id: 'tools', name: 'Tools', icon: 'terminal' },
     { id: 'mcp', name: 'MCP', icon: 'wifi' },
+    { id: 'schedules', name: 'Schedules', icon: 'info' },
     { id: 'ghost', name: 'Personality', icon: 'info' },
   ];
 
@@ -84,6 +85,66 @@
     await api.del(`/setup/mcp/${encodeURIComponent(name)}`);
     refreshExt();
   }
+
+  // --- scheduled Ghost (proactive runs) ---
+  interface Schedule {
+    id: string;
+    name: string;
+    prompt: string;
+    enabled: boolean;
+    notify: boolean;
+    every?: string;
+    at?: string;
+    nextRun?: string;
+    lastResult?: string;
+  }
+  let schedules = $state<Schedule[]>([]);
+  let schedName = $state('');
+  let schedPrompt = $state('');
+  let schedEvery = $state('6h');
+  let schedBusy = $state(false);
+  let runningId = $state('');
+
+  function refreshSchedules() {
+    api.get<Schedule[]>('/ai/schedules').then((v) => (schedules = v)).catch(() => {});
+  }
+  refreshSchedules();
+
+  async function addSchedule() {
+    if (!schedName.trim() || !schedPrompt.trim()) return;
+    schedBusy = true;
+    try {
+      await api.post('/ai/schedules', {
+        name: schedName.trim(),
+        prompt: schedPrompt.trim(),
+        every: schedEvery.trim(),
+        enabled: true,
+        notify: true,
+      });
+      schedName = '';
+      schedPrompt = '';
+      refreshSchedules();
+    } finally {
+      schedBusy = false;
+    }
+  }
+  async function toggleSchedule(s: Schedule) {
+    await api.post('/ai/schedules', { ...s, enabled: !s.enabled });
+    refreshSchedules();
+  }
+  async function removeSchedule(id: string) {
+    await api.del(`/ai/schedules/${encodeURIComponent(id)}`);
+    refreshSchedules();
+  }
+  async function runSchedule(id: string) {
+    runningId = id;
+    try {
+      await api.post(`/ai/schedules/${encodeURIComponent(id)}/run`, {});
+      refreshSchedules();
+    } finally {
+      runningId = '';
+    }
+  }
 </script>
 
 <div class="hub">
@@ -93,7 +154,7 @@
       <span>Hub</span>
     </div>
     {#each TABS as t (t.id)}
-      <button class:active={tab === t.id} onclick={() => { tab = t.id; refreshExt(); }}>
+      <button class:active={tab === t.id} onclick={() => { tab = t.id; refreshExt(); refreshSchedules(); }}>
         <Icon name={t.icon} size={15} />
         <span>{t.name}</span>
       </button>
@@ -178,6 +239,45 @@
           </div>
         {/each}
         {#if mcp.length === 0}<p class="empty">No MCP servers configured.</p>{/if}
+      </div>
+    {:else if tab === 'schedules'}
+      <header><h2>Scheduled Ghost</h2></header>
+      <p class="hint">
+        Proactive runs — a prompt on a timer. Each fires a read-only Ghost run
+        and shows the result as a notification. Interval as a duration
+        (<span class="mono">30m</span>, <span class="mono">6h</span>).
+      </p>
+      <form class="install" onsubmit={(e) => { e.preventDefault(); addSchedule(); }}>
+        <input class="narrow" bind:value={schedName} placeholder="name" />
+        <input class="narrow" bind:value={schedEvery} placeholder="6h" />
+        <input bind:value={schedPrompt} placeholder="Summarise what changed in ~/Downloads today" />
+        <button class="cta" type="submit" disabled={schedBusy}>{schedBusy ? 'Adding…' : 'Add'}</button>
+      </form>
+      <div class="rows">
+        {#each schedules as s (s.id)}
+          <div class="row sched">
+            <button
+              class="dot toggle"
+              class:on={s.enabled}
+              aria-label={s.enabled ? 'Disable' : 'Enable'}
+              onclick={() => toggleSchedule(s)}></button>
+            <div class="schedbody">
+              <div class="schedhead">
+                <span class="rname">{s.name}</span>
+                <span class="rsub mono">every {s.every || s.at}</span>
+              </div>
+              <span class="schedprompt">{s.prompt}</span>
+              {#if s.lastResult}<span class="schedlast">↳ {s.lastResult}</span>{/if}
+            </div>
+            <button class="del" disabled={runningId === s.id} onclick={() => runSchedule(s.id)}>
+              {runningId === s.id ? '…' : 'Run'}
+            </button>
+            <button class="del" aria-label="Remove" onclick={() => removeSchedule(s.id)}>
+              <Icon name="trash" size={14} />
+            </button>
+          </div>
+        {/each}
+        {#if schedules.length === 0}<p class="empty">No scheduled runs yet.</p>{/if}
       </div>
     {:else if tab === 'ghost'}
       <header><h2>Personality</h2></header>
@@ -307,6 +407,15 @@
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--err); flex: none; }
   .dot.on { background: var(--ok); }
   .empty { color: var(--text-low); font-size: 13px; padding: 16px 0; text-align: center; }
+
+  /* scheduled Ghost rows */
+  .row.sched { align-items: flex-start; }
+  .dot.toggle { margin-top: 5px; cursor: pointer; padding: 0; }
+  .schedbody { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .schedhead { display: flex; align-items: baseline; gap: 8px; }
+  .schedprompt { color: var(--text-mid); font-size: 12px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .schedlast { color: var(--text-low); font-size: 11.5px; font-style: italic; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .del { font-size: 12px; }
 
   .action {
     padding: 6px 12px;

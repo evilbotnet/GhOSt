@@ -63,6 +63,8 @@ func main() {
 	winMgr := windows.NewManager(hub)
 	br := browser.New()
 	ghost := ai.NewGhost(hub, ai.NewToolbox(files, sys, br))
+	scheduler := ai.NewScheduler(ghost, hub)
+	go scheduler.Start()
 	go sys.PublishLoop(hub, 5*time.Second)
 
 	srv := &httpapi.Server{
@@ -77,8 +79,10 @@ func main() {
 		Windows:   winMgr,
 		Setup:     setup.New(),
 		Ghost:     ghost,
+		Scheduler: scheduler,
 		WebApps:   webapps.New(),
 		Settings:  kv.New(),
+		Gateway:   ai.NewGateway(),
 		Office: office.New(os.Getenv("GHOST_OFFICE_URL"), func() bool {
 			tops, err := winMgr.List()
 			if err != nil {

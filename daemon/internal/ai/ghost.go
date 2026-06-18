@@ -33,8 +33,9 @@ func buildSystemPrompt(soul Soul, skills []Skill) string {
 // Ghost runs the confirmation-gated agent loop in the daemon and streams the
 // trace to the shell over WS topic ai.<session>.
 type Ghost struct {
-	hub     *ws.Hub
-	toolbox *Toolbox
+	hub         *ws.Hub
+	toolbox     *Toolbox
+	clientTools *clientToolReg
 
 	mu       sync.Mutex
 	sessions map[string]*aiSession
@@ -47,7 +48,12 @@ type aiSession struct {
 }
 
 func NewGhost(hub *ws.Hub, toolbox *Toolbox) *Ghost {
-	g := &Ghost{hub: hub, toolbox: toolbox, sessions: map[string]*aiSession{}}
+	g := &Ghost{
+		hub:         hub,
+		toolbox:     toolbox,
+		clientTools: newClientToolReg(hub),
+		sessions:    map[string]*aiSession{},
+	}
 	hub.HandlePrefix("ai.", g.handleEvent)
 	return g
 }
@@ -125,16 +131,35 @@ func (s *aiSession) mu(fn func()) {
 
 var sessionMu sync.Mutex
 
-func (g *Ghost) run(id, prompt string) {
+func (g *Ghost) run(id, prompt string) { g.runCore(id, prompt, false) }
+
+// RunScheduled executes a proactive, read-only Ghost run in a fresh ephemeral
+// session and returns its final message — for the scheduler to deliver as a
+// notification (ADR 0007).
+func (g *Ghost) RunScheduled(prompt string) string {
+	id := "sched." + newID()
+	defer func() {
+		g.mu.Lock()
+		delete(g.sessions, id)
+		g.mu.Unlock()
+	}()
+	return g.runCore(id, prompt, true)
+}
+
+// runCore drives the agent loop and returns the final assistant text. When
+// headless (a scheduled/proactive run with no user at the keyboard), mutating
+// tools are auto-declined — proactive Ghost observes and reports; it never
+// changes the system unattended. Interactive runs gate mutations on the user.
+func (g *Ghost) runCore(id, prompt string, headless bool) string {
 	name, p, ok := LoadConfig().AgentProvider()
 	if !ok {
 		g.emit(id, "error", map[string]string{"message": "Ghost isn't configured yet. Settings → Ghost, or re-run setup."})
-		return
+		return ""
 	}
 	llm, err := newLLM(p)
 	if err != nil {
 		g.emit(id, "error", map[string]string{"message": err.Error()})
-		return
+		return ""
 	}
 
 	s := g.session(id)
@@ -151,6 +176,9 @@ func (g *Ghost) run(id, prompt string) {
 	for n, t := range mcpTools() {
 		tools[n] = t
 	}
+	for n, t := range g.clientTools.tools() {
+		tools[n] = t
+	}
 	defs := make([]ToolDef, 0, len(tools))
 	for _, t := range tools {
 		defs = append(defs, t.def)
@@ -160,21 +188,23 @@ func (g *Ghost) run(id, prompt string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
+	last := ""
 	for step := 0; step < 12; step++ {
 		g.emit(id, "thinking", nil)
 		turn, err := llm.Chat(ctx, system, s.history, defs)
 		if err != nil {
 			g.emit(id, "error", map[string]string{"message": err.Error()})
-			return
+			return last
 		}
 		if turn.Text != "" {
 			g.emit(id, "message", map[string]string{"text": turn.Text})
+			last = turn.Text
 		}
 		s.history = append(s.history, Msg{Role: "assistant", Text: turn.Text, Calls: turn.Calls})
 
 		if len(turn.Calls) == 0 {
 			g.emit(id, "done", nil)
-			return
+			return last
 		}
 
 		var results []ToolResult
@@ -182,6 +212,11 @@ func (g *Ghost) run(id, prompt string) {
 			t, known := tools[call.Name]
 			if !known {
 				results = append(results, ToolResult{CallID: call.ID, Content: "unknown tool", IsError: true})
+				continue
+			}
+			if t.mutating && headless {
+				g.emit(id, "tool_denied", map[string]string{"name": call.Name})
+				results = append(results, ToolResult{CallID: call.ID, Content: "this is an unattended scheduled run — it is read-only, so this action was not performed. Report what you found and what you would do; don't retry.", IsError: true})
 				continue
 			}
 			if t.mutating && !g.confirm(s, call) {
@@ -202,6 +237,7 @@ func (g *Ghost) run(id, prompt string) {
 		s.history = append(s.history, Msg{Role: "tool", Results: results})
 	}
 	g.emit(id, "done", map[string]string{"note": "stopped after 12 steps"})
+	return last
 }
 
 // confirm shows a confirmation card in the shell and blocks until the user
