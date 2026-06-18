@@ -1,4 +1,5 @@
-import type { AppDef } from '../wm/wm.svelte';
+import { wm, type AppDef } from '../wm/wm.svelte';
+import OSAppWindow from './osapp/OSAppWindow.svelte';
 import Files from './files/Files.svelte';
 import Terminal from './terminal/Terminal.svelte';
 import Editor from './editor/Editor.svelte';
@@ -99,6 +100,23 @@ export function getApp(id: string): AppDef {
   const app = apps.find((a) => a.id === id);
   if (!app) throw new Error(`unknown app: ${id}`);
   return app;
+}
+
+/** Open an installed .osapp in a sandboxed window (ADR 0009). Each app gets a
+ *  synthetic, single-instance AppDef whose component is the sandboxed iframe. */
+export function openOSApp(id: string, name: string, icon = 'launcher') {
+  wm.open(
+    {
+      id: `osapp:${id}`,
+      name,
+      icon,
+      component: OSAppWindow,
+      defaultSize: { w: 900, h: 620 },
+      minSize: { w: 420, h: 320 },
+      single: true,
+    },
+    { appId: id, name },
+  );
 }
 
 /** The Browser is not an in-shell window: the daemon opens a native Chromium

@@ -27,8 +27,9 @@ manifest installed under `~/.local/share/ghost/apps/<id>/` with **scoped-
 permission tokens** the auth layer now enforces per request (fail-closed), and a
 **store/registry** in the Hub that browses and one-click-installs apps, skills,
 tools, and MCP servers from an **Ed25519-signed git index** (`ghostd
-store-keygen`/`store-sign` for publishers). Next hardening: a real per-app
-origin boundary (today apps share the shell's origin — see ADR 0009).
+store-keygen`/`store-sign` for publishers). Apps are isolated in a daemon-
+enforced **opaque-origin sandbox** (CSP `sandbox`), so a malicious app can't
+read the shell's token — verified both directions (see ADR 0009).
 
 **MCP Streamable-HTTP transport** 🔜 — the MCP client is stdio-only; add HTTP
 so hosted MCP servers (not just `npx` ones) work. Move keys into a small

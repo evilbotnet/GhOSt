@@ -166,10 +166,18 @@ func (s *Server) Router() http.Handler {
 	return r
 }
 
-// auth validates the bearer token and, defense-in-depth, the Origin header,
-// then enforces the scope the request path requires (ADR 0009). The shell's
-// session token is the superuser ("*"); a per-app token carries only its
-// granted scopes, so an app is confined to what the user approved.
+// auth validates the bearer token, enforces the Origin header for the superuser
+// session token, and checks the scope the request path requires (ADR 0009).
+//
+// Two principals, two origin rules:
+//   - The session token is the superuser ("*"). It is only honoured from the
+//     shell's own origin — defense against CSRF / DNS-rebinding, since a
+//     browsing window shares the daemon's host.
+//   - A per-app token carries only its granted scopes and *is* the capability
+//     (unguessable, unforgeable). Each app runs in a sandboxed opaque origin
+//     (its requests carry Origin: null), so app tokens are not origin-gated;
+//     the token + scope check is the boundary. A malicious website cannot
+//     obtain an app token, and even if it did it would be scope-limited.
 func (s *Server) auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token := ""
@@ -180,7 +188,8 @@ func (s *Server) auth(next http.Handler) http.Handler {
 		}
 
 		var scopes []string
-		if subtle.ConstantTimeCompare([]byte(token), []byte(s.Token)) == 1 {
+		isSession := subtle.ConstantTimeCompare([]byte(token), []byte(s.Token)) == 1
+		if isSession {
 			scopes = []string{osapp.ScopeAll}
 		} else if p, ok := s.tokens.lookup(token); ok {
 			scopes = p.scopes
@@ -189,9 +198,13 @@ func (s *Server) auth(next http.Handler) http.Handler {
 			return
 		}
 
-		if origin := r.Header.Get("Origin"); origin != "" && !s.originAllowed(origin) {
-			http.Error(w, "forbidden origin", http.StatusForbidden)
-			return
+		// The all-powerful session token must come from the shell origin; app
+		// tokens are exempt (they run in opaque origins and are scope-bound).
+		if isSession {
+			if origin := r.Header.Get("Origin"); origin != "" && !s.originAllowed(origin) {
+				http.Error(w, "forbidden origin", http.StatusForbidden)
+				return
+			}
 		}
 
 		if required := scopeFor(r.Method, r.URL.Path); !osapp.Allows(scopes, required) {
@@ -280,6 +293,13 @@ func (s *Server) serveApp(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")
+		// Daemon-enforced isolation (ADR 0009): the CSP sandbox directive forces
+		// the browser to give this document a unique *opaque* origin — no
+		// allow-same-origin — so it cannot reach the shell's window or read its
+		// token, and the shell cannot read into it. This holds even if the shell
+		// loaded it top-level or forgot the iframe sandbox attribute. frame-
+		// ancestors limits who may frame it to the shell's own origin.
+		w.Header().Set("Content-Security-Policy", "sandbox allow-scripts allow-forms allow-modals; frame-ancestors 'self'")
 		w.Write([]byte(html))
 		return
 	}

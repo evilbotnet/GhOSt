@@ -147,15 +147,48 @@ permissions* (a diff of the grant), so a silent permission grab is impossible.
   through a running daemon (configure → verify → install → serve with scoped
   token → confined API access).
 
-## Known limitation: same-origin isolation
+## App isolation: sandboxed opaque origin (resolved)
 
-v1 serves every app from the shared `127.0.0.1:7700` origin (at `/apps/<id>/`).
-The scoped token confines a *cooperating* app, but a *malicious* app rendered in
-a same-origin iframe could reach the shell's window and read its token — path is
-not an origin boundary. Closing this needs a real origin boundary per app (a
-sandboxed iframe with a unique opaque origin, or a per-app loopback port /
-subdomain) so the same-origin policy does the isolating. Tracked as the next
-hardening step; the scoped-token layer is the correct mechanism either way.
+The scoped token confines a *cooperating* app, but path is not an origin
+boundary — so a *malicious* app could otherwise reach the shell's window and
+read its full-privilege session token. Closed by giving every app a real origin
+boundary via a **CSP `sandbox` directive**, enforced by the daemon:
+
+```
+Content-Security-Policy: sandbox allow-scripts allow-forms allow-modals; frame-ancestors 'self'
+```
+
+served on `/apps/<id>/`. `sandbox` without `allow-same-origin` forces the
+browser to give the app document a **unique opaque origin** — cross-origin to
+*everything* — so it cannot reach `window.parent` (the shell) and the shell
+cannot read into it. The shell also renders the app in an `<iframe sandbox>`
+(belt and suspenders), but the header makes the isolation the *daemon's*
+guarantee, holding even top-level or if the shell forgot the attribute.
+`frame-ancestors 'self'` stops a hostile page from framing the app.
+
+This was chosen over per-app loopback ports / `*.localhost` subdomains: the
+opaque origin is the strongest isolation (cross-origin in both directions),
+needs no Host routing and no dependency on `*.localhost` resolution (which
+varies by browser/OS), and behaves identically in dev and on the Pi.
+
+**Origin policy, split by principal** (`httpapi.auth`): the superuser session
+token is honoured *only* from the shell's own origin (CSRF / DNS-rebinding
+defense), while a per-app token — itself an unguessable, scope-bound capability,
+arriving from the app's opaque origin as `Origin: null` — is not origin-gated;
+the token + scope check is its boundary. An app token can never escalate beyond
+its grant regardless of the Origin it claims.
+
+**Tradeoff:** an opaque-origin document has no cookies / `localStorage` /
+IndexedDB. This is acceptable — and arguably better: GhOSt apps persist through
+the scoped `fs` API (auditable, permission-gated) rather than opaque browser
+storage. Apps needing rich client storage are a future consideration (e.g. an
+opt-in `storage` scope backed by a daemon-mediated per-app store).
+
+Verified end-to-end in the browser: a test app reports `origin: null`, its
+`window.parent` token read throws `SecurityError`, the shell's read of the
+app's `contentDocument` is `null`, its granted `notify` call succeeds while its
+ungranted `term` call is refused 403 — and `httpapi/scopes_test.go` covers the
+origin rules (session origin-locked; app token exempt but unescalatable).
 
 ## Scope / open questions
 

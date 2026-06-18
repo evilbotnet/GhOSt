@@ -5,7 +5,7 @@
   import Icon from '../../desktop/Icon.svelte';
   import { api } from '../../api/client';
   import { wm, type Win } from '../../wm/wm.svelte';
-  import { getApp } from '../registry';
+  import { getApp, openOSApp } from '../registry';
   import { webApps } from '../../api/webapps.svelte';
   import type { SkillInfo, ToolInfo, MCPInfo } from '../../api/ghost.svelte';
 
@@ -302,6 +302,7 @@
             <div class="row">
               <span class="rname">{a.name}</span>
               <span class="rsub mono">{a.id} · v{a.version}{a.granted?.length ? ' · ' + a.granted.join(', ') : ''}</span>
+              <button class="cta sm" onclick={() => openOSApp(a.id, a.name)}>Open</button>
               <button class="del" aria-label="Uninstall" onclick={() => uninstallOSApp(a.id)}>
                 <Icon name="trash" size={14} />
               </button>
