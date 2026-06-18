@@ -1,8 +1,7 @@
 # ADR 0009 — `.osapp` packaging and the store
 
-Status: accepted (design) · Target: post-Phase-7 ·
-Deepens [ADR 0001](0001-app-platform.md) Layer 2 · relates to
-[ADR 0006](0006-app-ghost-tools.md)
+Status: accepted (built) · Deepens [ADR 0001](0001-app-platform.md) Layer 2 ·
+relates to [ADR 0006](0006-app-ghost-tools.md)
 
 ## The question
 
@@ -123,9 +122,45 @@ permissions* (a diff of the grant), so a silent permission grab is impossible.
   extension of *Ghost*, not just a window. Installing Tone Studio teaches Ghost
   "export the track" — bounded by the app's own scopes.
 
+## As built
+
+- **`daemon/internal/osapp`** — manifest + `Install` (SHA-256 verify, `..`/
+  absolute/backslash zip-slip rejection, atomic `<id>.incoming`→rename), the
+  grants store (`~/.local/share/ghost/apps/grants.json`), and the scope
+  vocabulary + `Allows` (with `rw⊇ro`, `control⊇read` implication).
+- **Scoped tokens** (`daemon/internal/httpapi`) — `auth` now resolves a token
+  to a scope set (session token → `*`; per-app token → its grant) and enforces
+  the scope each path requires via a central `scopeFor` table that **fails
+  closed** (any unlisted path is shell-only). Each app is served its own token,
+  injected into its entry HTML, minted on first serve and revoked on uninstall.
+- **`daemon/internal/store`** — fetches `index.json` + `index.json.sig`,
+  verifies the **Ed25519** signature against a pinned public key *before*
+  trusting any entry, then installs by type (app → download+hash+`osapp`,
+  skill/tool → safe-unzip into the config dir, mcp → `ai.AddMCPServer`).
+  Publisher tooling: `ghostd store-keygen` / `ghostd store-sign`.
+- **Hub → Store tab** — browse the verified catalog, one-click install (apps
+  show a permission prompt before the grant), plus an Installed-packages list
+  with uninstall.
+- Tests: `osapp_test.go` (install/hash/zip-slip/scopes), `httpapi/scopes_test.go`
+  (live auth enforcement: granted vs. denied vs. revoked), `store_test.go`
+  (signed install + wrong-key + tampered-index rejection). Verified end-to-end
+  through a running daemon (configure → verify → install → serve with scoped
+  token → confined API access).
+
+## Known limitation: same-origin isolation
+
+v1 serves every app from the shared `127.0.0.1:7700` origin (at `/apps/<id>/`).
+The scoped token confines a *cooperating* app, but a *malicious* app rendered in
+a same-origin iframe could reach the shell's window and read its token — path is
+not an origin boundary. Closing this needs a real origin boundary per app (a
+sandboxed iframe with a unique opaque origin, or a per-app loopback port /
+subdomain) so the same-origin policy does the isolating. Tracked as the next
+hardening step; the scoped-token layer is the correct mechanism either way.
+
 ## Scope / open questions
 
 Per-app storage quotas and a data-reset/uninstall-cleanup contract; whether
 `net:fetch` proxying is worth the complexity in v1; multi-window apps; an
-app-level "background" lifecycle (today an app is its window). None block the
-v1 hash-pinned store.
+app-level "background" lifecycle (today an app is its window); publisher
+signatures over individual packages (v2 — today the signed index pins each
+package's hash). None block the v1 hash-pinned, signed-index store.

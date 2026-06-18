@@ -22,7 +22,9 @@ import (
 	"github.com/ghostos/ghostd/internal/httpapi"
 	"github.com/ghostos/ghostd/internal/kv"
 	"github.com/ghostos/ghostd/internal/office"
+	"github.com/ghostos/ghostd/internal/osapp"
 	"github.com/ghostos/ghostd/internal/setup"
+	"github.com/ghostos/ghostd/internal/store"
 	"github.com/ghostos/ghostd/internal/system"
 	"github.com/ghostos/ghostd/internal/term"
 	"github.com/ghostos/ghostd/internal/webapps"
@@ -34,6 +36,15 @@ func main() {
 	// `ghostd helper` is the privileged sidecar (ghost-admin.service, root).
 	if len(os.Args) > 1 && os.Args[1] == "helper" {
 		log.Fatal(admin.RunHelper())
+	}
+	// Store publisher tooling (ADR 0009).
+	if len(os.Args) > 1 && os.Args[1] == "store-keygen" {
+		storeKeygen()
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "store-sign" {
+		storeSign(os.Args[2:])
+		return
 	}
 
 	listen := flag.String("listen", "127.0.0.1:7700", "address to bind (localhost only)")
@@ -65,6 +76,7 @@ func main() {
 	ghost := ai.NewGhost(hub, ai.NewToolbox(files, sys, br))
 	scheduler := ai.NewScheduler(ghost, hub)
 	go scheduler.Start()
+	osApps := osapp.New()
 	go sys.PublishLoop(hub, 5*time.Second)
 
 	srv := &httpapi.Server{
@@ -81,6 +93,8 @@ func main() {
 		Ghost:     ghost,
 		Scheduler: scheduler,
 		WebApps:   webapps.New(),
+		OSApps:    osApps,
+		Store:     store.New(osApps),
 		Settings:  kv.New(),
 		Gateway:   ai.NewGateway(),
 		Office: office.New(os.Getenv("GHOST_OFFICE_URL"), func() bool {

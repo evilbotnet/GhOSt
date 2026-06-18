@@ -23,7 +23,9 @@ import (
 	"github.com/ghostos/ghostd/internal/fsops"
 	"github.com/ghostos/ghostd/internal/kv"
 	"github.com/ghostos/ghostd/internal/office"
+	"github.com/ghostos/ghostd/internal/osapp"
 	"github.com/ghostos/ghostd/internal/setup"
+	"github.com/ghostos/ghostd/internal/store"
 	"github.com/ghostos/ghostd/internal/system"
 	"github.com/ghostos/ghostd/internal/term"
 	"github.com/ghostos/ghostd/internal/webapps"
@@ -46,12 +48,19 @@ type Server struct {
 	Ghost     *ai.Ghost
 	Scheduler *ai.Scheduler
 	WebApps   *webapps.Store
+	OSApps    *osapp.Store
+	Store     *store.Store
 	Settings  *kv.Store
 	Gateway   *ai.Gateway
+
+	tokens *tokenReg // per-app scoped tokens (ADR 0009); lazily initialized
 }
 
 func (s *Server) Router() http.Handler {
 	r := chi.NewRouter()
+	if s.tokens == nil {
+		s.tokens = newTokenReg()
+	}
 
 	r.Route("/api/v1", func(api chi.Router) {
 		// Dev-only bootstrap: lets the Vite-served shell fetch the token.
@@ -119,6 +128,13 @@ func (s *Server) Router() http.Handler {
 			authed.Post("/apps/launch", s.appsLaunch)
 			authed.Delete("/apps/{id}", s.appsUninstall)
 
+			authed.Get("/osapps", s.osappsList)
+			authed.Delete("/osapps/{id}", s.osappUninstall)
+
+			authed.Get("/store", s.storeCatalog)
+			authed.Put("/store/config", s.storeConfig)
+			authed.Post("/store/install", s.storeInstall)
+
 			authed.Get("/setup/status", s.setupStatus)
 			authed.Get("/setup/timezones", s.setupTimezones)
 			authed.Post("/setup/password", s.setupPassword)
@@ -137,13 +153,23 @@ func (s *Server) Router() http.Handler {
 		v.Handle("/*", s.Gateway)
 	})
 
+	// Installed .osapp packages are served at /apps/<id>/ (ADR 0009), each with
+	// its own scoped token injected — distinct from the shell's static files.
+	if s.OSApps != nil {
+		r.Handle("/apps/{id}/*", http.HandlerFunc(s.serveApp))
+		r.Handle("/apps/{id}", http.HandlerFunc(s.serveApp))
+	}
+
 	if s.StaticDir != "" {
 		r.Get("/*", s.serveShell)
 	}
 	return r
 }
 
-// auth validates the bearer token and, defense-in-depth, the Origin header.
+// auth validates the bearer token and, defense-in-depth, the Origin header,
+// then enforces the scope the request path requires (ADR 0009). The shell's
+// session token is the superuser ("*"); a per-app token carries only its
+// granted scopes, so an app is confined to what the user approved.
 func (s *Server) auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token := ""
@@ -152,12 +178,24 @@ func (s *Server) auth(next http.Handler) http.Handler {
 		} else {
 			token = r.URL.Query().Get("token") // WebSocket
 		}
-		if subtle.ConstantTimeCompare([]byte(token), []byte(s.Token)) != 1 {
+
+		var scopes []string
+		if subtle.ConstantTimeCompare([]byte(token), []byte(s.Token)) == 1 {
+			scopes = []string{osapp.ScopeAll}
+		} else if p, ok := s.tokens.lookup(token); ok {
+			scopes = p.scopes
+		} else {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
+
 		if origin := r.Header.Get("Origin"); origin != "" && !s.originAllowed(origin) {
 			http.Error(w, "forbidden origin", http.StatusForbidden)
+			return
+		}
+
+		if required := scopeFor(r.Method, r.URL.Path); !osapp.Allows(scopes, required) {
+			http.Error(w, "forbidden: this app lacks the "+required+" permission", http.StatusForbidden)
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -198,6 +236,115 @@ func (s *Server) serveShell(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.ServeFile(w, r, path)
+}
+
+// serveApp serves an installed .osapp's files from its install dir at
+// /apps/<id>/, injecting the app's own scoped token into its entry HTML so it
+// boots authenticated with exactly the permissions it was granted (ADR 0009).
+func (s *Server) serveApp(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	inst, ok := s.OSApps.Get(id)
+	if !ok || !inst.Enabled {
+		http.NotFound(w, r)
+		return
+	}
+	base := s.OSApps.Dir(id)
+
+	rel := chi.URLParam(r, "*")
+	if rel == "" || rel == "/" {
+		rel = inst.Entry
+	}
+	full := filepath.Join(base, filepath.Clean("/"+rel))
+	if full != base && !strings.HasPrefix(full, base+string(os.PathSeparator)) {
+		http.NotFound(w, r)
+		return
+	}
+	if info, err := os.Stat(full); err != nil || info.IsDir() {
+		full = filepath.Join(base, filepath.Clean("/"+inst.Entry))
+	}
+
+	// Inject the scoped token only into the entry HTML.
+	if full == filepath.Join(base, filepath.Clean("/"+inst.Entry)) {
+		data, err := os.ReadFile(full)
+		if err != nil {
+			http.Error(w, "app entry missing", http.StatusInternalServerError)
+			return
+		}
+		tok := s.tokens.tokenForApp(id, inst.Granted)
+		inject := fmt.Sprintf("<script>window.__GHOST_TOKEN__=%q;window.__GHOST_APP__=%q;</script>", tok, id)
+		html := string(data)
+		if strings.Contains(html, "<head>") {
+			html = strings.Replace(html, "<head>", "<head>"+inject, 1)
+		} else {
+			html = inject + html
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		w.Write([]byte(html))
+		return
+	}
+	http.ServeFile(w, r, full)
+}
+
+func (s *Server) osappsList(w http.ResponseWriter, r *http.Request) {
+	list := s.OSApps.List()
+	if list == nil {
+		list = []osapp.Installed{}
+	}
+	writeJSON(w, list)
+}
+
+func (s *Server) osappUninstall(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := s.OSApps.Uninstall(id); err != nil {
+		writeErr(w, err)
+		return
+	}
+	s.tokens.revoke(id)
+	writeJSON(w, map[string]bool{"ok": true})
+}
+
+// storeCatalog returns the store config plus the verified catalog (or the
+// reason it couldn't be fetched/verified, so the Hub can guide the user).
+func (s *Server) storeCatalog(w http.ResponseWriter, r *http.Request) {
+	cfg := s.Store.Config()
+	resp := map[string]any{"configured": cfg.IndexURL != "" && cfg.PublicKey != "", "url": cfg.IndexURL}
+	idx, err := s.Store.Catalog()
+	if err != nil {
+		resp["error"] = err.Error()
+		resp["entries"] = []store.Entry{}
+	} else {
+		resp["entries"] = idx.Entries
+		resp["generated"] = idx.Generated
+	}
+	writeJSON(w, resp)
+}
+
+func (s *Server) storeConfig(w http.ResponseWriter, r *http.Request) {
+	var c store.Config
+	if !readJSON(w, r, &c) {
+		return
+	}
+	if err := s.Store.Configure(c); err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, map[string]bool{"ok": true})
+}
+
+func (s *Server) storeInstall(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ID      string   `json:"id"`
+		Granted []string `json:"granted"`
+	}
+	if !readJSON(w, r, &req) {
+		return
+	}
+	if err := s.Store.Install(req.ID, req.Granted); err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, map[string]bool{"ok": true})
 }
 
 // ---- handlers ----

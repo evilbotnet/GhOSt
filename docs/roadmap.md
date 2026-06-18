@@ -21,11 +21,14 @@ that turns one utterance into one tool call ("volume 40", "open wifi") fully
 offline, escalating multi-step work to the LAN/cloud provider. Pair it with a
 `Super+Space` **command palette** (apps + commands + Ghost in one box).
 
-**`.osapp` packages** 🔜 — [ADR 0001](decisions/0001-app-platform.md) Layer 2.
-The real third-party contract: a zip + manifest + **scoped-permission tokens**
-(the auth layer already enforces scopes). Plus a **store/registry** surfaced in
-the Hub — browse and one-click-install apps, skills, tools, and MCP servers
-from a signed git index. This is how the ecosystem grows.
+**`.osapp` packages + store** ✅ — [ADR 0001](decisions/0001-app-platform.md)
+Layer 2 / [ADR 0009](decisions/0009-osapp-packaging-store.md). Shipped: a zip +
+manifest installed under `~/.local/share/ghost/apps/<id>/` with **scoped-
+permission tokens** the auth layer now enforces per request (fail-closed), and a
+**store/registry** in the Hub that browses and one-click-installs apps, skills,
+tools, and MCP servers from an **Ed25519-signed git index** (`ghostd
+store-keygen`/`store-sign` for publishers). Next hardening: a real per-app
+origin boundary (today apps share the shell's origin — see ADR 0009).
 
 **MCP Streamable-HTTP transport** 🔜 — the MCP client is stdio-only; add HTTP
 so hosted MCP servers (not just `npx` ones) work. Move keys into a small
@@ -42,15 +45,15 @@ gallery so others can pile on.
 **AI**
 - 🟡 **Voice** — "Hey Ghost": wake word + on-device STT (whisper.cpp) + TTS.
   An appliance you talk to is the killer Pi-400 demo.
-- 🟡 **Proactive Ghost** — scheduled/triggered runs ("each morning, summarize
-  my notes and check disk"), surfaced through notifications.
+- ✅ **Proactive Ghost** — scheduled runs on an interval or daily time, read-only,
+  surfaced through notifications ([ADR 0007](decisions/0007-scheduled-ghost.md)).
 - 🟡 **Cross-session memory** — a memory store Ghost reads/writes, so it
   remembers preferences and context between sessions.
-- 🟡 **Apps expose tools to Ghost** — an `.osapp` may declare tools; Ghost can
-  then drive third-party apps. An agentic app ecosystem on a $70 computer.
-- 🟡 **Model gateway** — [ADR 0003](decisions/0003-devkit-and-model-gateway.md):
-  expose Ghost's configured providers as a localhost OpenAI-compatible endpoint
-  so `pi`, Herdr, and other tools inherit your keys + routing + audit log.
+- ✅ **Apps expose tools to Ghost** — a running app registers tools over the WS;
+  Ghost invokes them, mutations gated ([ADR 0006](decisions/0006-app-ghost-tools.md)).
+- ✅ **Model gateway** — [ADR 0003](decisions/0003-devkit-and-model-gateway.md):
+  Ghost's configured provider exposed as a localhost OpenAI-compatible `/v1`
+  endpoint so `pi`, Herdr, and other tools inherit your keys + routing + audit.
 - 🟡 **Devkit** — optional one-click `pi` / Herdr install.
 
 **System & OS**

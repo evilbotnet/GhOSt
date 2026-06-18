@@ -11,10 +11,11 @@
 
   let { win: _win }: { win: Win } = $props();
 
-  type Tab = 'apps' | 'skills' | 'tools' | 'mcp' | 'schedules' | 'ghost';
-  let tab = $state<Tab>('apps');
+  type Tab = 'store' | 'apps' | 'skills' | 'tools' | 'mcp' | 'schedules' | 'ghost';
+  let tab = $state<Tab>('store');
 
   const TABS: { id: Tab; name: string; icon: string }[] = [
+    { id: 'store', name: 'Store', icon: 'launcher' },
     { id: 'apps', name: 'Web Apps', icon: 'browser' },
     { id: 'skills', name: 'Skills', icon: 'editor' },
     { id: 'tools', name: 'Tools', icon: 'terminal' },
@@ -86,6 +87,86 @@
     refreshExt();
   }
 
+  // --- store (signed git-index registry, ADR 0009) ---
+  interface StoreEntry {
+    type: 'app' | 'skill' | 'tool' | 'mcp';
+    id: string;
+    name: string;
+    version: string;
+    description?: string;
+    icon?: string;
+    permissions?: string[];
+  }
+  interface OSApp {
+    id: string;
+    name: string;
+    version: string;
+    granted?: string[];
+  }
+  let storeConfigured = $state(false);
+  let storeURL = $state('');
+  let storeError = $state('');
+  let catalog = $state<StoreEntry[]>([]);
+  let osApps = $state<OSApp[]>([]);
+  let busyId = $state('');
+  // config form
+  let cfgURL = $state('');
+  let cfgKey = $state('');
+  let showCfg = $state(false);
+
+  function refreshStore() {
+    api
+      .get<{ configured: boolean; url: string; error?: string; entries: StoreEntry[] }>('/store')
+      .then((s) => {
+        storeConfigured = s.configured;
+        storeURL = s.url || '';
+        storeError = s.error || '';
+        catalog = s.entries || [];
+      })
+      .catch(() => {});
+    api.get<OSApp[]>('/osapps').then((v) => (osApps = v)).catch(() => {});
+  }
+  refreshStore();
+
+  async function saveStoreConfig() {
+    if (!cfgURL.trim() || !cfgKey.trim()) return;
+    await api.put('/store/config', { indexURL: cfgURL.trim(), publicKey: cfgKey.trim() });
+    showCfg = false;
+    refreshStore();
+  }
+
+  function installed(id: string): boolean {
+    return osApps.some((a) => a.id === id);
+  }
+
+  async function installEntry(e: StoreEntry) {
+    // Apps carry permissions — confirm the grant before installing.
+    let granted: string[] = [];
+    if (e.type === 'app' && e.permissions?.length) {
+      const ok = confirm(
+        `${e.name} requests these permissions:\n\n` +
+          e.permissions.map((p) => '  • ' + p).join('\n') +
+          `\n\nInstall and grant them?`,
+      );
+      if (!ok) return;
+      granted = e.permissions;
+    }
+    busyId = e.id;
+    try {
+      await api.post('/store/install', { id: e.id, granted });
+      refreshStore();
+    } catch (err) {
+      storeError = err instanceof Error ? err.message : String(err);
+    } finally {
+      busyId = '';
+    }
+  }
+
+  async function uninstallOSApp(id: string) {
+    await api.del(`/osapps/${encodeURIComponent(id)}`);
+    refreshStore();
+  }
+
   // --- scheduled Ghost (proactive runs) ---
   interface Schedule {
     id: string;
@@ -154,7 +235,7 @@
       <span>Hub</span>
     </div>
     {#each TABS as t (t.id)}
-      <button class:active={tab === t.id} onclick={() => { tab = t.id; refreshExt(); refreshSchedules(); }}>
+      <button class:active={tab === t.id} onclick={() => { tab = t.id; refreshExt(); refreshSchedules(); refreshStore(); }}>
         <Icon name={t.icon} size={15} />
         <span>{t.name}</span>
       </button>
@@ -162,7 +243,73 @@
   </aside>
 
   <section>
-    {#if tab === 'apps'}
+    {#if tab === 'store'}
+      <header><h2>Store</h2></header>
+      <p class="hint">
+        Browse and one-click-install apps, skills, tools, and MCP servers from a
+        signed git index. ghostd verifies the index signature against the pinned
+        key before anything installs.
+      </p>
+
+      {#if !storeConfigured || showCfg}
+        <form class="install col" onsubmit={(e) => { e.preventDefault(); saveStoreConfig(); }}>
+          <input bind:value={cfgURL} placeholder="index URL (https://…/index.json or a local path)" />
+          <input bind:value={cfgKey} placeholder="pinned public key (base64 Ed25519)" />
+          <button class="cta" type="submit">Save store</button>
+        </form>
+      {:else}
+        <div class="storebar">
+          <span class="rsub mono">{storeURL}</span>
+          <button class="action" onclick={() => { cfgURL = storeURL; showCfg = true; }}>Change…</button>
+        </div>
+      {/if}
+
+      {#if storeError}<p class="storeerr">⚠ {storeError}</p>{/if}
+
+      <div class="rows">
+        {#each catalog as e (e.id)}
+          <div class="row sched">
+            <Icon name={e.icon || 'launcher'} size={16} />
+            <div class="schedbody">
+              <div class="schedhead">
+                <span class="rname">{e.name}</span>
+                <span class="badge">{e.type}</span>
+                <span class="rsub mono">v{e.version}</span>
+              </div>
+              {#if e.description}<span class="schedprompt">{e.description}</span>{/if}
+              {#if e.permissions?.length}
+                <span class="schedlast">needs: {e.permissions.join(' · ')}</span>
+              {/if}
+            </div>
+            {#if installed(e.id)}
+              <span class="badge ok">installed</span>
+            {:else}
+              <button class="cta sm" disabled={busyId === e.id} onclick={() => installEntry(e)}>
+                {busyId === e.id ? 'Installing…' : 'Install'}
+              </button>
+            {/if}
+          </div>
+        {/each}
+        {#if storeConfigured && !storeError && catalog.length === 0}
+          <p class="empty">The store index is empty.</p>
+        {/if}
+      </div>
+
+      {#if osApps.length > 0}
+        <header><h2>Installed packages</h2></header>
+        <div class="rows">
+          {#each osApps as a (a.id)}
+            <div class="row">
+              <span class="rname">{a.name}</span>
+              <span class="rsub mono">{a.id} · v{a.version}{a.granted?.length ? ' · ' + a.granted.join(', ') : ''}</span>
+              <button class="del" aria-label="Uninstall" onclick={() => uninstallOSApp(a.id)}>
+                <Icon name="trash" size={14} />
+              </button>
+            </div>
+          {/each}
+        </div>
+      {/if}
+    {:else if tab === 'apps'}
       <header><h2>Web Apps</h2></header>
       <p class="hint">Any website, installed as its own windowed app.</p>
       <form class="install" onsubmit={(e) => { e.preventDefault(); installApp(); }}>
@@ -404,6 +551,7 @@
     margin-left: 6px;
   }
   .badge.warn { background: var(--warn); color: var(--accent-ink); }
+  .badge.ok { background: var(--ok); color: var(--ink-0); margin-left: 0; align-self: center; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--err); flex: none; }
   .dot.on { background: var(--ok); }
   .empty { color: var(--text-low); font-size: 13px; padding: 16px 0; text-align: center; }
@@ -435,6 +583,12 @@
     font-size: 13px;
   }
   .cta:hover { background: var(--accent-bright); }
+  .cta.sm { padding: 5px 12px; font-size: 12px; align-self: center; }
+  .cta[disabled] { opacity: 0.5; }
+  .install.col { flex-direction: column; }
+  .storebar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .storebar .rsub { flex: 1; }
+  .storeerr { color: var(--err); font-size: 12.5px; margin: 0 0 12px; }
   .f {
     display: flex;
     flex-direction: column;
