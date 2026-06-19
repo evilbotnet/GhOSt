@@ -40,9 +40,12 @@ read the shell's token — verified both directions (see ADR 0009).
 so hosted MCP servers (not just `npx` ones) work. Move keys into a small
 **credential vault** (currently key files).
 
-**README/imagery & CI** 🔜 — automate image builds on tag (go vet +
-svelte-check + build + release), add a contributor guide and a skills/tools
-gallery so others can pile on.
+**CI/CD** ✅ (core) — GitHub Actions: `ci.yml` validates every push/PR (go vet +
+test + arm64/amd64 cross-build, svelte-check + shell build, PII sweep);
+`release.yml` builds the flashable **arm64 Pi image on a `v*` tag** using a
+native arm64 runner (no local build, no emulation) and attaches it +
+sha256 to the GitHub Release. Remaining: an arm64 `qcow2` VM artifact for UTM,
+an amd64 image target, and a contributor guide + skills/tools gallery.
 
 ---
 

@@ -1,5 +1,7 @@
 # GhOSt
 
+[![CI](https://github.com/evilbotnet/GhOSt/actions/workflows/ci.yml/badge.svg)](https://github.com/evilbotnet/GhOSt/actions/workflows/ci.yml)
+
 **G**o · **h**tml · **O**perating **S**ystem · **t**ypescript — with a ghost
 in the shell.
 

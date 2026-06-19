@@ -1,3 +1,7 @@
+//go:build darwin
+
+// This exercises the in-memory mock driver (the macOS / no-hardware path). The
+// Linux libgpiod driver needs a real GPIO header, so it isn't unit-tested in CI.
 package gpio
 
 import "testing"

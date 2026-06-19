@@ -1,0 +1,57 @@
+name: Release
+
+# Tag a version (e.g. `git tag v0.3.0 && git push --tags`) and GitHub builds the
+# flashable Raspberry Pi image and attaches it to the release — no local build.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write # create the release + upload assets
+
+jobs:
+  pi-image:
+    name: Pi image (arm64)
+    # Native arm64 runner: build-image.sh customizes Raspberry Pi OS in a
+    # native chroot, so no qemu emulation is needed.
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: daemon/go.sum
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build artifacts (shell + ghostd, arm64)
+        run: bash scripts/build-release.sh
+
+      - name: Host image deps
+        run: sudo apt-get update -qq
+
+      - name: Build Pi image
+        run: sudo bash os/pi/build-image.sh dist/ghost "ghost-pi-${GITHUB_REF_NAME}.img"
+
+      - name: Compress + checksum
+        run: |
+          xz -T0 -3 "ghost-pi-${GITHUB_REF_NAME}.img"
+          sha256sum "ghost-pi-${GITHUB_REF_NAME}.img.xz" > "ghost-pi-${GITHUB_REF_NAME}.img.xz.sha256"
+          ls -lh ghost-pi-*
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ghost-pi-${{ github.ref_name }}.img.xz
+            ghost-pi-${{ github.ref_name }}.img.xz.sha256
+          generate_release_notes: true
+          fail_on_unmatched_files: true
