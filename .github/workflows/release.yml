@@ -43,6 +43,9 @@ jobs:
 
       - name: Compress + checksum
         run: |
+          # build-image.sh runs under sudo, so the .img is root-owned; take
+          # ownership before xz (which otherwise can't set the output's group).
+          sudo chown "$(id -u):$(id -g)" "ghost-pi-${GITHUB_REF_NAME}.img"
           xz -T0 -3 "ghost-pi-${GITHUB_REF_NAME}.img"
           sha256sum "ghost-pi-${GITHUB_REF_NAME}.img.xz" > "ghost-pi-${GITHUB_REF_NAME}.img.xz.sha256"
           ls -lh ghost-pi-*
