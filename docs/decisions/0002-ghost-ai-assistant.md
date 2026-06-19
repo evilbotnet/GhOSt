@@ -125,3 +125,35 @@ first Ghost invocation.
   tokens + user-visible grants. Ghost is just another principal.
 - Apps (Layer 2) can *expose* tools to Ghost via their manifest later —
   an agentic app ecosystem nobody else has on a $70 computer.
+
+## As built — the router & command tier
+
+The agent loop shipped in Phase 7 ([ADR 0004](0004-ghost-implementation.md));
+the capability-tier router is now built too (`daemon/internal/ai/router.go`,
+wired through `Ghost.handlePrompt`):
+
+- **Tier 0 — command rules** (`commandRules` / `matchCommand`): deterministic
+  regex → one tool call, **no LLM, fully offline**. Covers `volume <n>` / `mute`,
+  `lock`, `open <url>`, `status`. Mutating commands still hit the confirmation
+  gate; the panel shows provenance `command tier · rules · offline`. Verified
+  end-to-end in the shell ("volume 40" → gate → `set_volume` → done).
+- **Tier 2 — agent loop**: when an agent provider is configured, multi-step
+  requests run the full gated loop. `routing.fallback` is now honoured — if the
+  agent's first call fails, Ghost retries once on the fallback provider and
+  re-emits provenance.
+- **Tier 1 — local intent model** (`runIntent`): when *only* a local intent
+  model is configured (no agent), a single constrained call yields one tool
+  call. This is the Pi-friendly path (a ~1B llama.cpp model does command-tier
+  intent without an agent backend).
+- **Explicit override** (`parseOverride`): `ask <provider> <request>` pins the
+  request to a named provider.
+- The route is chosen by **deterministic rules, not a model** (cheap,
+  predictable, auditable) exactly as argued above. `IntentProvider` /
+  `FallbackProvider` / `NamedProvider` accessors resolve the tiers from
+  `ai.toml`. Tests: `router_test.go` (rule matching + override parsing).
+
+**Deferred:** the on-device llama.cpp lifecycle (socket-activation, stop-when-
+idle) — today the intent tier is just a provider configured at a local URL; and
+a unified Super+Space **command palette** (apps + commands + Ghost in one box) —
+today Super+Space opens the Ghost panel, which routes commands through the tiers
+above. Both are tracked on the roadmap.

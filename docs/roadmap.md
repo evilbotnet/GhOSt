@@ -14,12 +14,16 @@ are ✅ — see [architecture.md](architecture.md) and the ADRs.
 
 ## Now → Next (the immediate edge)
 
-**Ghost's local router & command tier** 🔜 — [ADR 0002](decisions/0002-ghost-ai-assistant.md)
-designed a capability-tiered router; today routing is single-provider. Ship
-the **on-device command tier**: a tiny socket-activated local model (llama.cpp)
-that turns one utterance into one tool call ("volume 40", "open wifi") fully
-offline, escalating multi-step work to the LAN/cloud provider. Pair it with a
-`Super+Space` **command palette** (apps + commands + Ghost in one box).
+**Ghost's local router & command tier** ✅ (core) — [ADR 0002](decisions/0002-ghost-ai-assistant.md).
+Built: a deterministic capability-tier router — tier-0 command rules turn one
+utterance into one tool call with **no model, fully offline** ("volume 40",
+"lock", "open <url>"), tier-2 escalates multi-step work to the agent provider
+with `routing.fallback`, tier-1 uses a local intent model when it's the only
+brain, plus `ask <provider>` overrides. Provenance shows the tier per reply.
+Remaining: the on-device llama.cpp lifecycle (socket-activated, stop-when-idle —
+today the intent tier is just a provider at a local URL), and a unified
+`Super+Space` **command palette** (apps + commands + Ghost in one box; today
+Super+Space opens the Ghost panel, which routes through the tiers).
 
 **`.osapp` packages + store** ✅ — [ADR 0001](decisions/0001-app-platform.md)
 Layer 2 / [ADR 0009](decisions/0009-osapp-packaging-store.md). Shipped: a zip +

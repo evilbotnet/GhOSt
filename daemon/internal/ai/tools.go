@@ -198,6 +198,20 @@ func (tb *Toolbox) tools() map[string]tool {
 					s.Hostname, s.Platform, s.Wifi.Connected, s.Wifi.SSID, s.Battery.Percent, s.Volume.Percent), nil
 			},
 		},
+		"lock_screen": {
+			mutating: true,
+			def: ToolDef{
+				Name:        "lock_screen",
+				Description: "Lock the screen. Mutating — the user must confirm.",
+				Properties:  map[string]any{},
+			},
+			run: func(a map[string]any) (string, error) {
+				if err := tb.sys.Lock(); err != nil {
+					return "", err
+				}
+				return "screen locked", nil
+			},
+		},
 		"gpio_list": {
 			def: ToolDef{
 				Name:        "gpio_list",

@@ -65,6 +65,36 @@ func (c Config) AgentProvider() (name string, p Provider, ok bool) {
 	return c.Routing.Agent, p, ok
 }
 
+// IntentProvider resolves the routing.intent provider — the local command tier
+// that turns one utterance into one tool call (ADR 0002).
+func (c Config) IntentProvider() (name string, p Provider, ok bool) {
+	if !c.Enabled || c.Routing.Intent == "" {
+		return "", Provider{}, false
+	}
+	p, ok = c.Providers[c.Routing.Intent]
+	return c.Routing.Intent, p, ok
+}
+
+// FallbackProvider resolves the routing.fallback provider, used when the agent
+// tier is unreachable (ADR 0002).
+func (c Config) FallbackProvider() (name string, p Provider, ok bool) {
+	if !c.Enabled || c.Routing.Fallback == "" {
+		return "", Provider{}, false
+	}
+	p, ok = c.Providers[c.Routing.Fallback]
+	return c.Routing.Fallback, p, ok
+}
+
+// NamedProvider resolves an explicit provider by name (for "ask <provider>"
+// overrides).
+func (c Config) NamedProvider(name string) (Provider, bool) {
+	if !c.Enabled {
+		return Provider{}, false
+	}
+	p, ok := c.Providers[name]
+	return p, ok
+}
+
 // fullConfig is the single in-memory shape of ai.toml. All writers go through
 // loadFull/saveFull so the wizard, Settings, and the Hub's MCP management never
 // clobber each other's sections.

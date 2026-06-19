@@ -106,7 +106,7 @@ func (g *Ghost) handleEvent(topic, event string, payload json.RawMessage) {
 	case "prompt":
 		var p struct{ Text string }
 		json.Unmarshal(payload, &p)
-		go g.run(id, p.Text)
+		go g.handlePrompt(id, p.Text)
 	case "confirm":
 		var c struct {
 			CallID string `json:"callId"`
@@ -131,7 +131,161 @@ func (s *aiSession) mu(fn func()) {
 
 var sessionMu sync.Mutex
 
-func (g *Ghost) run(id, prompt string) { g.runCore(id, prompt, false) }
+// handlePrompt is the router entry (ADR 0002). It decides the *kind* of work
+// deterministically — command tier (offline rules) first, then the agent tier,
+// then a local intent model if that's the only brain configured.
+func (g *Ghost) handlePrompt(id, prompt string) {
+	cfg := LoadConfig()
+	if !cfg.Enabled {
+		g.emit(id, "error", map[string]string{"message": "Ghost isn't configured yet. Settings → Ghost, or re-run setup."})
+		return
+	}
+
+	// Explicit override: "ask <provider> <request>" pins the agent tier.
+	override, rest := parseOverride(prompt)
+	if override != "" {
+		if _, ok := cfg.NamedProvider(override); !ok {
+			g.emit(id, "error", map[string]string{"message": "no provider named '" + override + "'"})
+			return
+		}
+		g.runCore(id, rest, false, override)
+		return
+	}
+
+	// Tier 0 — deterministic command rules: instant, offline, no model.
+	if tool, args, ok := matchCommand(prompt); ok {
+		g.runCommand(id, tool, args)
+		return
+	}
+
+	// Tier 2 — the multi-step agent loop, when an agent provider exists.
+	if _, _, ok := cfg.AgentProvider(); ok {
+		g.runCore(id, prompt, false, "")
+		return
+	}
+
+	// Tier 1 — only a local intent model is configured: single-shot command tier.
+	if _, _, ok := cfg.IntentProvider(); ok {
+		g.runIntent(id, prompt)
+		return
+	}
+
+	g.emit(id, "error", map[string]string{"message": "Ghost isn't configured yet. Settings → Ghost, or re-run setup."})
+}
+
+// runCommand executes one deterministic command-tier tool call — no LLM, just
+// the matched OS action, still confirmation-gated if it mutates (ADR 0002).
+func (g *Ghost) runCommand(id, name string, args map[string]any) {
+	tools, _ := g.buildTools()
+	t, ok := tools[name]
+	if !ok {
+		g.emit(id, "error", map[string]string{"message": "command unavailable: " + name})
+		return
+	}
+	g.emit(id, "provenance", map[string]string{"provider": "command tier", "model": "rules · offline"})
+	s := g.session(id)
+	if t.mutating && !g.confirm(s, ToolCall{ID: newID(), Name: name, Args: args}) {
+		g.emit(id, "tool_denied", map[string]string{"name": name})
+		g.emit(id, "done", nil)
+		return
+	}
+	g.emit(id, "tool_run", map[string]any{"name": name, "args": args})
+	out, err := t.run(args)
+	if err != nil {
+		g.emit(id, "tool_result", map[string]any{"name": name, "error": err.Error()})
+		g.emit(id, "message", map[string]string{"text": "Couldn't: " + err.Error()})
+	} else {
+		g.emit(id, "tool_result", map[string]any{"name": name, "output": out})
+		g.emit(id, "message", map[string]string{"text": out})
+	}
+	g.emit(id, "done", nil)
+}
+
+// runIntent is the tier-1 path: a local intent model produces exactly one tool
+// call for the request (ADR 0002). Used only when no agent provider is set.
+func (g *Ghost) runIntent(id, prompt string) {
+	name, p, ok := LoadConfig().IntentProvider()
+	if !ok {
+		g.emit(id, "error", map[string]string{"message": "no intent model configured"})
+		return
+	}
+	llm, err := newLLM(p)
+	if err != nil {
+		g.emit(id, "error", map[string]string{"message": err.Error()})
+		return
+	}
+	tools, skills := g.buildTools()
+	defs := defsOf(tools)
+	system := buildSystemPrompt(LoadSoul(), skills) +
+		"\n\nYou are the command tier: reply with exactly ONE tool call that performs the user's request, or a one-line answer if no tool fits. Do not chain multiple steps."
+	g.emit(id, "provenance", map[string]string{"provider": name + " · command tier", "model": p.Model})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	g.emit(id, "thinking", nil)
+	turn, err := llm.Chat(ctx, system, []Msg{{Role: "user", Text: prompt}}, defs)
+	if err != nil {
+		g.emit(id, "error", map[string]string{"message": err.Error()})
+		return
+	}
+	if len(turn.Calls) == 0 {
+		text := turn.Text
+		if text == "" {
+			text = "I can only handle single commands without a full agent model configured."
+		}
+		g.emit(id, "message", map[string]string{"text": text})
+		g.emit(id, "done", nil)
+		return
+	}
+	call := turn.Calls[0]
+	t, known := tools[call.Name]
+	if !known {
+		g.emit(id, "error", map[string]string{"message": "unknown tool " + call.Name})
+		return
+	}
+	s := g.session(id)
+	if t.mutating && !g.confirm(s, call) {
+		g.emit(id, "tool_denied", map[string]string{"name": call.Name})
+		g.emit(id, "done", nil)
+		return
+	}
+	g.emit(id, "tool_run", map[string]any{"name": call.Name, "args": call.Args})
+	out, err := t.run(call.Args)
+	if err != nil {
+		g.emit(id, "tool_result", map[string]any{"name": call.Name, "error": err.Error()})
+		g.emit(id, "message", map[string]string{"text": "Couldn't: " + err.Error()})
+	} else {
+		g.emit(id, "tool_result", map[string]any{"name": call.Name, "output": out})
+		g.emit(id, "message", map[string]string{"text": out})
+	}
+	g.emit(id, "done", nil)
+}
+
+// buildTools assembles Ghost's full tool map (OS tools + load_skill + external
+// tools + MCP + app-provided client tools) and the loaded skills.
+func (g *Ghost) buildTools() (map[string]tool, []Skill) {
+	tools := g.toolbox.tools()
+	skills := LoadSkills()
+	tools["load_skill"] = loadSkillTool(skills)
+	for n, t := range extTools() {
+		tools[n] = t
+	}
+	for n, t := range mcpTools() {
+		tools[n] = t
+	}
+	for n, t := range g.clientTools.tools() {
+		tools[n] = t
+	}
+	return tools, skills
+}
+
+func defsOf(tools map[string]tool) []ToolDef {
+	defs := make([]ToolDef, 0, len(tools))
+	for _, t := range tools {
+		defs = append(defs, t.def)
+	}
+	return defs
+}
 
 // RunScheduled executes a proactive, read-only Ghost run in a fresh ephemeral
 // session and returns its final message — for the scheduler to deliver as a
@@ -143,15 +297,24 @@ func (g *Ghost) RunScheduled(prompt string) string {
 		delete(g.sessions, id)
 		g.mu.Unlock()
 	}()
-	return g.runCore(id, prompt, true)
+	return g.runCore(id, prompt, true, "")
 }
 
 // runCore drives the agent loop and returns the final assistant text. When
 // headless (a scheduled/proactive run with no user at the keyboard), mutating
 // tools are auto-declined — proactive Ghost observes and reports; it never
 // changes the system unattended. Interactive runs gate mutations on the user.
-func (g *Ghost) runCore(id, prompt string, headless bool) string {
-	name, p, ok := LoadConfig().AgentProvider()
+func (g *Ghost) runCore(id, prompt string, headless bool, providerOverride string) string {
+	cfg := LoadConfig()
+	var name string
+	var p Provider
+	var ok bool
+	if providerOverride != "" {
+		name = providerOverride
+		p, ok = cfg.NamedProvider(providerOverride)
+	} else {
+		name, p, ok = cfg.AgentProvider()
+	}
 	if !ok {
 		g.emit(id, "error", map[string]string{"message": "Ghost isn't configured yet. Settings → Ghost, or re-run setup."})
 		return ""
@@ -166,23 +329,8 @@ func (g *Ghost) runCore(id, prompt string, headless bool) string {
 	s.history = append(s.history, Msg{Role: "user", Text: prompt})
 	g.emit(id, "provenance", map[string]string{"provider": name, "model": p.Model})
 
-	// Built-in OS tools + extensions (skills via load_skill, external tools).
-	tools := g.toolbox.tools()
-	skills := LoadSkills()
-	tools["load_skill"] = loadSkillTool(skills)
-	for n, t := range extTools() {
-		tools[n] = t
-	}
-	for n, t := range mcpTools() {
-		tools[n] = t
-	}
-	for n, t := range g.clientTools.tools() {
-		tools[n] = t
-	}
-	defs := make([]ToolDef, 0, len(tools))
-	for _, t := range tools {
-		defs = append(defs, t.def)
-	}
+	tools, skills := g.buildTools()
+	defs := defsOf(tools)
 	system := buildSystemPrompt(LoadSoul(), skills)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
@@ -193,9 +341,22 @@ func (g *Ghost) runCore(id, prompt string, headless bool) string {
 		g.emit(id, "thinking", nil)
 		turn, err := llm.Chat(ctx, system, s.history, defs)
 		if err != nil {
+			// Agent unreachable: fall back to routing.fallback once (ADR 0002).
+			if step == 0 && providerOverride == "" {
+				if fname, fp, fok := cfg.FallbackProvider(); fok && fname != name {
+					if flm, ferr := newLLM(fp); ferr == nil {
+						g.emit(id, "provenance", map[string]string{"provider": fname + " · fallback", "model": fp.Model})
+						llm, name, p = flm, fname, fp
+						if turn, err = llm.Chat(ctx, system, s.history, defs); err == nil {
+							goto handled
+						}
+					}
+				}
+			}
 			g.emit(id, "error", map[string]string{"message": err.Error()})
 			return last
 		}
+	handled:
 		if turn.Text != "" {
 			g.emit(id, "message", map[string]string{"text": turn.Text})
 			last = turn.Text
