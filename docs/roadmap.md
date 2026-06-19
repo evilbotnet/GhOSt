@@ -20,10 +20,11 @@ utterance into one tool call with **no model, fully offline** ("volume 40",
 "lock", "open <url>"), tier-2 escalates multi-step work to the agent provider
 with `routing.fallback`, tier-1 uses a local intent model when it's the only
 brain, plus `ask <provider>` overrides. Provenance shows the tier per reply.
-Remaining: the on-device llama.cpp lifecycle (socket-activated, stop-when-idle —
-today the intent tier is just a provider at a local URL), and a unified
-`Super+Space` **command palette** (apps + commands + Ghost in one box; today
-Super+Space opens the Ghost panel, which routes through the tiers).
+The unified `Super+Space` **command palette** (apps + commands + Ghost in one
+box) is shipped — typeahead opens any installed app (built-in, web, `.osapp`)
+instantly, and free text hands off to Ghost's router. Remaining: the on-device
+llama.cpp lifecycle (socket-activated, stop-when-idle — today the intent tier
+is just a provider at a local URL; deferred to keep the image lean).
 
 **`.osapp` packages + store** ✅ — [ADR 0001](decisions/0001-app-platform.md)
 Layer 2 / [ADR 0009](decisions/0009-osapp-packaging-store.md). Shipped: a zip +

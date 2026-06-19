@@ -2,17 +2,27 @@
   import Wallpaper from './Wallpaper.svelte';
   import Taskbar from './Taskbar.svelte';
   import Launcher from './Launcher.svelte';
+  import Palette from './Palette.svelte';
   import GhostPanel from '../ghost/GhostPanel.svelte';
   import NotifyToasts from '../notify/NotifyToasts.svelte';
   import WindowFrame from '../wm/Window.svelte';
   import { wm, viewport } from '../wm/wm.svelte';
   import { notifications } from '../notify/notify.svelte';
+  import { ghost } from '../api/ghost.svelte';
 
   notifications.start();
 
   let launcherOpen = $state(false);
   let ghostOpen = $state(false);
+  let paletteOpen = $state(false);
   let surface = $state<HTMLElement | null>(null);
+
+  // The palette hands free text to Ghost: open the panel and submit the prompt.
+  function askGhost(q: string) {
+    paletteOpen = false;
+    ghostOpen = true;
+    ghost.ask(q);
+  }
 
   // Keep the WM's notion of the viewport in sync with the window surface.
   $effect(() => {
@@ -26,15 +36,17 @@
   });
 
   function onKeydown(e: KeyboardEvent) {
-    // Super+Space summons Ghost; bare Super opens the launcher.
+    // Super+Space opens the command palette (apps + commands + Ghost);
+    // bare Super opens the launcher.
     if (e.key === ' ' && e.metaKey) {
       e.preventDefault();
-      ghostOpen = !ghostOpen;
+      paletteOpen = !paletteOpen;
       return;
     }
     if (e.key === 'Meta' && !e.repeat) launcherOpen = !launcherOpen;
     if (e.key === 'Escape') {
-      if (ghostOpen) ghostOpen = false;
+      if (paletteOpen) paletteOpen = false;
+      else if (ghostOpen) ghostOpen = false;
       else if (launcherOpen) launcherOpen = false;
     }
   }
@@ -50,6 +62,7 @@
     {/each}
   </div>
   <Launcher bind:open={launcherOpen} />
+  <Palette bind:open={paletteOpen} onAskGhost={askGhost} />
   <GhostPanel bind:open={ghostOpen} />
   <NotifyToasts />
   <Taskbar bind:launcherOpen bind:ghostOpen />

@@ -70,7 +70,7 @@
     class="ghost-btn"
     class:active={ghostOpen}
     aria-label="Ghost assistant"
-    title="Ghost — Super+Space"
+    title="Ghost  ·  command palette: Super+Space"
     onclick={() => (ghostOpen = !ghostOpen)}
   >
     <svg viewBox="0 0 100 100" width="19" height="19" aria-hidden="true">

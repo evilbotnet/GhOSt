@@ -152,8 +152,13 @@ wired through `Ghost.handlePrompt`):
   `FallbackProvider` / `NamedProvider` accessors resolve the tiers from
   `ai.toml`. Tests: `router_test.go` (rule matching + override parsing).
 
+- **Super+Space command palette** (`apps/shell/src/lib/desktop/Palette.svelte`):
+  a spotlight box unifying apps + commands + Ghost. Typeahead filters every
+  installed app — built-in, web, and `.osapp` — and opens one instantly
+  (locally, no daemon round-trip); free text becomes an "Ask Ghost" action that
+  opens the panel and submits to the router. Keyboard-driven (↑/↓/Enter/Esc).
+  Bare Super still opens the app-grid launcher.
+
 **Deferred:** the on-device llama.cpp lifecycle (socket-activation, stop-when-
-idle) — today the intent tier is just a provider configured at a local URL; and
-a unified Super+Space **command palette** (apps + commands + Ghost in one box) —
-today Super+Space opens the Ghost panel, which routes commands through the tiers
-above. Both are tracked on the roadmap.
+idle) — today the intent tier is just a provider configured at a local URL,
+deferred to keep the deployment image lean. Tracked on the roadmap.
