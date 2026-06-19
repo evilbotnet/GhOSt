@@ -44,8 +44,10 @@ so hosted MCP servers (not just `npx` ones) work. Move keys into a small
 test + arm64/amd64 cross-build, svelte-check + shell build, PII sweep);
 `release.yml` builds the flashable **arm64 Pi image on a `v*` tag** using a
 native arm64 runner (no local build, no emulation) and attaches it +
-sha256 to the GitHub Release. Remaining: an arm64 `qcow2` VM artifact for UTM,
-an amd64 image target, and a contributor guide + skills/tools gallery.
+sha256 to the GitHub Release. A **contributor guide**
+([CONTRIBUTING.md](../CONTRIBUTING.md)) and **skills/tools gallery**
+([gallery.md](gallery.md)) are in. Remaining: an arm64 `qcow2` VM artifact for
+UTM and an amd64 image target.
 
 ---
 

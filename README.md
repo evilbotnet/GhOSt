@@ -152,9 +152,13 @@ Four ways, cheapest first — full guide in [docs/apps.md](docs/apps.md):
    registry entry; talk to the system through the typed `ghostd` API client.
 3. **Linux software**: it's Debian underneath — `sudo apt install gimp` in
    the Terminal; native Wayland windows join the taskbar automatically.
-4. **`.osapp` packages** (planned): zip + manifest + scoped-permission
-   tokens — the contract for third-party apps
-   ([ADR 0001](docs/decisions/0001-app-platform.md)).
+4. **`.osapp` packages**: zip + manifest + scoped-permission tokens the auth
+   layer enforces, sandboxed in an opaque origin, one-click-installable from the
+   Hub's store (a signed git index) — the contract for third-party apps
+   ([ADR 0009](docs/decisions/0009-osapp-packaging-store.md)).
+
+To teach **Ghost** new tricks instead, add a skill or a tool — no code needed
+for skills. See the [skills & tools gallery](docs/gallery.md).
 
 ## Repository layout
 
@@ -176,8 +180,16 @@ Viewer, Monitor, Hub, Settings, Office, Browser, Ghost. Polish done: themes
 (dark/light + accents), notifications, lock screen, updates panel, soul/hatch,
 skills + tools + MCP with Hub management.
 
-What's next — local AI router + command palette, `.osapp` packages and a
-store, voice, and more: [docs/roadmap.md](docs/roadmap.md).
+What's next — voice, cross-session memory, x86/VM image targets, and more:
+[docs/roadmap.md](docs/roadmap.md).
+
+## Contributing
+
+There's an on-ramp at every level — a five-line skill (no code), a tool, an
+`.osapp`, or the Go daemon / Svelte shell. Start with
+[CONTRIBUTING.md](CONTRIBUTING.md) and the
+[skills & tools gallery](docs/gallery.md). CI runs `go vet`/`test` +
+`svelte-check` on every PR.
 
 ## License
 
