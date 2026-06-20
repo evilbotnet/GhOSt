@@ -58,8 +58,9 @@ UTM and an amd64 image target.
   An appliance you talk to is the killer Pi-400 demo.
 - ✅ **Proactive Ghost** — scheduled runs on an interval or daily time, read-only,
   surfaced through notifications ([ADR 0007](decisions/0007-scheduled-ghost.md)).
-- 🟡 **Cross-session memory** — a memory store Ghost reads/writes, so it
-  remembers preferences and context between sessions.
+- ✅ **Cross-session memory** — durable facts (preferences, context) in
+  `~/.config/ghost/memory`, injected into Ghost's prompt; gated remember/forget
+  tools + a Hub Memory tab ([ADR 0010](decisions/0010-cross-session-memory.md)).
 - ✅ **Apps expose tools to Ghost** — a running app registers tools over the WS;
   Ghost invokes them, mutations gated ([ADR 0006](decisions/0006-app-ghost-tools.md)).
 - ✅ **Model gateway** — [ADR 0003](decisions/0003-devkit-and-model-gateway.md):

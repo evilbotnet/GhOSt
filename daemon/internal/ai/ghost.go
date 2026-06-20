@@ -20,13 +20,14 @@ Be direct and use your tools to actually do things rather than explaining how th
 If a tool returns an error, adapt or report it plainly. When the task is done, give a one-line summary of what you did.`
 
 // buildSystemPrompt assembles SOUL identity + persona, the operating rules,
-// and the available-skills section into the full system prompt.
+// the available-skills section, and persisted cross-session memory.
 func buildSystemPrompt(soul Soul, skills []Skill) string {
 	var b strings.Builder
 	b.WriteString(soulIdentity(soul))
 	b.WriteString("\n")
 	b.WriteString(baseOperatingPrompt)
 	b.WriteString(skillsPromptSection(skills))
+	b.WriteString(memoryPromptSection(LoadMemories()))
 	return b.String()
 }
 
@@ -71,6 +72,9 @@ func (g *Ghost) Tools() []ExtToolInfo { return ExtTools() }
 
 // Soul is Ghost's hatched personality (name + persona).
 func (g *Ghost) Soul() Soul { return LoadSoul() }
+
+// Memories are the facts Ghost persists across sessions.
+func (g *Ghost) Memories() []Memory { return LoadMemories() }
 
 // MCPServers reports the configured MCP servers and their connection state.
 func (g *Ghost) MCPServers() []MCPServerInfo { return MCPServersInfo() }
@@ -267,6 +271,9 @@ func (g *Ghost) buildTools() (map[string]tool, []Skill) {
 	tools := g.toolbox.tools()
 	skills := LoadSkills()
 	tools["load_skill"] = loadSkillTool(skills)
+	for n, t := range memoryTools() {
+		tools[n] = t
+	}
 	for n, t := range extTools() {
 		tools[n] = t
 	}

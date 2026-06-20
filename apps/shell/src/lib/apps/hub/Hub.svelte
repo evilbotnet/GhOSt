@@ -11,7 +11,7 @@
 
   let { win: _win }: { win: Win } = $props();
 
-  type Tab = 'store' | 'apps' | 'skills' | 'tools' | 'mcp' | 'schedules' | 'ghost';
+  type Tab = 'store' | 'apps' | 'skills' | 'tools' | 'mcp' | 'memory' | 'schedules' | 'ghost';
   let tab = $state<Tab>('store');
 
   const TABS: { id: Tab; name: string; icon: string }[] = [
@@ -20,6 +20,7 @@
     { id: 'skills', name: 'Skills', icon: 'editor' },
     { id: 'tools', name: 'Tools', icon: 'terminal' },
     { id: 'mcp', name: 'MCP', icon: 'wifi' },
+    { id: 'memory', name: 'Memory', icon: 'editor' },
     { id: 'schedules', name: 'Schedules', icon: 'info' },
     { id: 'ghost', name: 'Personality', icon: 'info' },
   ];
@@ -167,6 +168,27 @@
     refreshStore();
   }
 
+  // --- cross-session memory ---
+  interface MemoryItem { name: string; description?: string; body: string }
+  let memories = $state<MemoryItem[]>([]);
+  let memName = $state('');
+  let memBody = $state('');
+  function refreshMemory() {
+    api.get<MemoryItem[]>('/ai/memory').then((v) => (memories = v)).catch(() => {});
+  }
+  refreshMemory();
+  async function addMemory() {
+    if (!memName.trim() || !memBody.trim()) return;
+    await api.post('/ai/memory', { name: memName.trim(), body: memBody.trim() });
+    memName = '';
+    memBody = '';
+    refreshMemory();
+  }
+  async function removeMemory(name: string) {
+    await api.del(`/ai/memory/${encodeURIComponent(name)}`);
+    refreshMemory();
+  }
+
   // --- scheduled Ghost (proactive runs) ---
   interface Schedule {
     id: string;
@@ -235,7 +257,7 @@
       <span>Hub</span>
     </div>
     {#each TABS as t (t.id)}
-      <button class:active={tab === t.id} onclick={() => { tab = t.id; refreshExt(); refreshSchedules(); refreshStore(); }}>
+      <button class:active={tab === t.id} onclick={() => { tab = t.id; refreshExt(); refreshSchedules(); refreshStore(); refreshMemory(); }}>
         <Icon name={t.icon} size={15} />
         <span>{t.name}</span>
       </button>
@@ -387,6 +409,33 @@
           </div>
         {/each}
         {#if mcp.length === 0}<p class="empty">No MCP servers configured.</p>{/if}
+      </div>
+    {:else if tab === 'memory'}
+      <header><h2>Memory</h2></header>
+      <p class="hint">
+        Facts Ghost carries between conversations — your preferences and durable
+        context. Ghost adds these (with your confirmation) as it learns; you can
+        add or remove them here. Everything Ghost remembers is visible.
+      </p>
+      <form class="install" onsubmit={(e) => { e.preventDefault(); addMemory(); }}>
+        <input class="narrow" bind:value={memName} placeholder="name" />
+        <input bind:value={memBody} placeholder="e.g. Prefers metric units and a 24-hour clock" />
+        <button class="cta" type="submit">Add</button>
+      </form>
+      <div class="rows">
+        {#each memories as m (m.name)}
+          <div class="row sched">
+            <Icon name="editor" size={16} />
+            <div class="schedbody">
+              <div class="schedhead"><span class="rname">{m.name}</span></div>
+              <span class="schedprompt">{m.body}</span>
+            </div>
+            <button class="del" aria-label="Forget" onclick={() => removeMemory(m.name)}>
+              <Icon name="trash" size={14} />
+            </button>
+          </div>
+        {/each}
+        {#if memories.length === 0}<p class="empty">Ghost hasn't remembered anything yet.</p>{/if}
       </div>
     {:else if tab === 'schedules'}
       <header><h2>Scheduled Ghost</h2></header>

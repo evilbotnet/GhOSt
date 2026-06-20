@@ -111,6 +111,9 @@ func (s *Server) Router() http.Handler {
 			authed.Get("/ai/tools", s.aiTools)
 			authed.Get("/ai/soul", s.aiSoul)
 			authed.Get("/ai/mcp", s.aiMCP)
+			authed.Get("/ai/memory", s.memoryList)
+			authed.Post("/ai/memory", s.memorySave)
+			authed.Delete("/ai/memory/{name}", s.memoryRemove)
 			authed.Get("/ai/schedules", s.schedulesList)
 			authed.Post("/ai/schedules", s.scheduleSave)
 			authed.Delete("/ai/schedules/{id}", s.scheduleRemove)
@@ -715,6 +718,35 @@ func (s *Server) aiTools(w http.ResponseWriter, r *http.Request) {
 		tools = []ai.ExtToolInfo{}
 	}
 	writeJSON(w, tools)
+}
+
+func (s *Server) memoryList(w http.ResponseWriter, r *http.Request) {
+	mems := s.Ghost.Memories()
+	if mems == nil {
+		mems = []ai.Memory{}
+	}
+	writeJSON(w, mems)
+}
+
+func (s *Server) memorySave(w http.ResponseWriter, r *http.Request) {
+	var req struct{ Name, Description, Body string }
+	if !readJSON(w, r, &req) {
+		return
+	}
+	m, err := ai.SaveMemory(req.Name, req.Description, req.Body)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, m)
+}
+
+func (s *Server) memoryRemove(w http.ResponseWriter, r *http.Request) {
+	if err := ai.DeleteMemory(chi.URLParam(r, "name")); err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, map[string]bool{"ok": true})
 }
 
 func (s *Server) schedulesList(w http.ResponseWriter, r *http.Request) {
