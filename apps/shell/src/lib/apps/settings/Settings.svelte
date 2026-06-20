@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from '../../desktop/Icon.svelte';
-  import { api, type WifiNetwork } from '../../api/client';
+  import { api, getToken, type WifiNetwork } from '../../api/client';
   import { system } from '../../api/system.svelte';
   import { wm, type Win } from '../../wm/wm.svelte';
   import { getApp } from '../registry';
@@ -8,7 +8,7 @@
 
   let { win }: { win: Win } = $props();
 
-  type Panel = 'wifi' | 'sound' | 'appearance' | 'ghost' | 'updates' | 'about';
+  type Panel = 'wifi' | 'sound' | 'appearance' | 'ghost' | 'updates' | 'backup' | 'about';
   let panel = $state<Panel>(((win.props.panel as Panel) ?? 'wifi'));
 
   const PANELS: { id: Panel; name: string; icon: string }[] = [
@@ -17,8 +17,56 @@
     { id: 'appearance', name: 'Appearance', icon: 'image' },
     { id: 'ghost', name: 'Ghost AI', icon: 'info' },
     { id: 'updates', name: 'Updates', icon: 'refresh' },
+    { id: 'backup', name: 'Backup', icon: 'files' },
     { id: 'about', name: 'About', icon: 'info' },
   ];
+
+  // --- backup & restore ---
+  let backupBusy = $state('');
+  let backupMsg = $state('');
+  let restored = $state(false);
+  async function exportBackup() {
+    backupBusy = 'export';
+    backupMsg = '';
+    try {
+      const res = await fetch('/api/v1/backup/export', { headers: { Authorization: 'Bearer ' + getToken() } });
+      if (!res.ok) throw new Error('export failed');
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      const date = new Date().toISOString().slice(0, 10);
+      a.download = `ghost-backup-${date}.tar.gz`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      backupMsg = 'Backup downloaded.';
+    } catch (e) {
+      backupMsg = e instanceof Error ? e.message : String(e);
+    } finally {
+      backupBusy = '';
+    }
+  }
+  async function importBackup(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    backupBusy = 'import';
+    backupMsg = '';
+    try {
+      const res = await fetch('/api/v1/backup/import', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + getToken() },
+        body: file,
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? 'restore failed');
+      restored = true;
+      backupMsg = 'Restored. Reload to apply.';
+    } catch (err) {
+      backupMsg = err instanceof Error ? err.message : String(err);
+    } finally {
+      backupBusy = '';
+      input.value = '';
+    }
+  }
 
   // --- updates panel ---
   let updates = $state<{ count: number; packages: string[] } | null>(null);
@@ -258,6 +306,26 @@
           placeholder="You are calm, concise, and quietly capable…"></textarea>
       </label>
       <button class="action" onclick={saveSoul}>{soulSaved ? 'Saved ✓' : 'Save personality'}</button>
+    {:else if panel === 'backup'}
+      <header><h2>Backup &amp; restore</h2></header>
+      <p class="hint">
+        Save or restore everything GhOSt holds — settings, skills, tools, memory,
+        personality, schedules, installed apps and store config — as a single
+        archive. Your documents in Files aren't included; back those up separately.
+      </p>
+      <div class="backup-actions">
+        <button class="action" disabled={backupBusy === 'export'} onclick={exportBackup}>
+          {backupBusy === 'export' ? 'Exporting…' : 'Export backup'}
+        </button>
+        <label class="action file-action">
+          {backupBusy === 'import' ? 'Restoring…' : 'Restore from file…'}
+          <input type="file" accept=".gz,.tar.gz,application/gzip" onchange={importBackup} hidden />
+        </label>
+      </div>
+      {#if backupMsg}<p class="hint" class:ok={restored}>{backupMsg}</p>{/if}
+      {#if restored}
+        <button class="action primary" onclick={() => location.reload()}>Reload now</button>
+      {/if}
     {:else}
       <header><h2>About</h2></header>
       <dl>
@@ -336,6 +404,11 @@
   .action:hover:not(:disabled) {
     border-color: var(--accent-dim);
   }
+  .action:disabled { opacity: 0.5; }
+  .action.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); margin-top: 4px; }
+  .backup-actions { display: flex; gap: 10px; margin-bottom: 10px; }
+  .file-action { cursor: pointer; }
+  .hint.ok { color: var(--ok); }
   .error {
     color: var(--err);
     font-size: 13px;

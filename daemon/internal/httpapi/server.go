@@ -19,6 +19,7 @@ import (
 
 	"github.com/ghostos/ghostd/internal/admin"
 	"github.com/ghostos/ghostd/internal/ai"
+	"github.com/ghostos/ghostd/internal/backup"
 	"github.com/ghostos/ghostd/internal/browser"
 	"github.com/ghostos/ghostd/internal/fsops"
 	"github.com/ghostos/ghostd/internal/kv"
@@ -125,6 +126,9 @@ func (s *Server) Router() http.Handler {
 			authed.Get("/settings", s.settingsGet)
 			authed.Put("/settings", s.settingsPut)
 			authed.Post("/notify", s.notify)
+
+			authed.Get("/backup/export", s.backupExport)
+			authed.Post("/backup/import", s.backupImport)
 
 			authed.Get("/apps", s.appsList)
 			authed.Post("/apps/install", s.appsInstall)
@@ -469,6 +473,26 @@ func (s *Server) notify(w http.ResponseWriter, r *http.Request) {
 	s.Hub.Publish("notify", "show", map[string]string{
 		"title": req.Title, "body": req.Body, "kind": req.Kind,
 	})
+	writeJSON(w, map[string]bool{"ok": true})
+}
+
+// backupExport streams a .tar.gz of all GhOSt state as a download. Shell-only
+// (the manage scope); the ?token query param lets the browser download link
+// authenticate without a header.
+func (s *Server) backupExport(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/gzip")
+	w.Header().Set("Content-Disposition", `attachment; filename="ghost-backup.tar.gz"`)
+	// If Export fails mid-stream the download is truncated; the client validates
+	// on import, so a bad export can't silently restore.
+	_ = backup.Export(w)
+}
+
+func (s *Server) backupImport(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	if err := backup.Import(r.Body); err != nil {
+		writeErr(w, err)
+		return
+	}
 	writeJSON(w, map[string]bool{"ok": true})
 }
 

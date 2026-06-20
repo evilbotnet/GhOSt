@@ -73,7 +73,9 @@ UTM and an amd64 image target.
   beyond `apt` (the v2 update story).
 - 🟡 **More Settings** — Bluetooth pairing, display scaling, keyboard layout,
   power/battery, saved Wi-Fi management, printing.
-- 🟡 **Backup & restore** — snapshot/export `~` and all GhOSt config.
+- ✅ **Backup & restore** — export/restore all GhOSt state (settings, skills,
+  tools, memory, soul, schedules, installed apps, store config) as one `.tar.gz`
+  from Settings → Backup (traversal-safe restore).
 
 **Desktop**
 - 🟡 **Window tiling / snapping + virtual desktops**, wallpaper picker, fonts.
