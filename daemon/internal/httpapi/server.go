@@ -20,6 +20,7 @@ import (
 	"github.com/ghostos/ghostd/internal/admin"
 	"github.com/ghostos/ghostd/internal/ai"
 	"github.com/ghostos/ghostd/internal/backup"
+	"github.com/ghostos/ghostd/internal/devkit"
 	"github.com/ghostos/ghostd/internal/browser"
 	"github.com/ghostos/ghostd/internal/fsops"
 	"github.com/ghostos/ghostd/internal/kv"
@@ -129,6 +130,9 @@ func (s *Server) Router() http.Handler {
 
 			authed.Get("/backup/export", s.backupExport)
 			authed.Post("/backup/import", s.backupImport)
+
+			authed.Get("/devkit/status", s.devkitStatus)
+			authed.Post("/devkit/install", s.devkitInstall)
 
 			authed.Get("/apps", s.appsList)
 			authed.Post("/apps/install", s.appsInstall)
@@ -490,6 +494,18 @@ func (s *Server) backupExport(w http.ResponseWriter, r *http.Request) {
 func (s *Server) backupImport(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	if err := backup.Import(r.Body); err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, map[string]bool{"ok": true})
+}
+
+func (s *Server) devkitStatus(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, devkit.Get())
+}
+
+func (s *Server) devkitInstall(w http.ResponseWriter, r *http.Request) {
+	if err := devkit.Install(); err != nil {
 		writeErr(w, err)
 		return
 	}

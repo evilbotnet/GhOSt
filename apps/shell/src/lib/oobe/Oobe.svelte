@@ -4,8 +4,8 @@
 
   let { onDone }: { onDone: () => void } = $props();
 
-  type Step = 'welcome' | 'password' | 'timezone' | 'wifi' | 'ghost' | 'hatch' | 'done';
-  const STEPS: Step[] = ['welcome', 'password', 'timezone', 'wifi', 'ghost', 'hatch', 'done'];
+  type Step = 'welcome' | 'password' | 'timezone' | 'wifi' | 'ghost' | 'hatch' | 'devkit' | 'done';
+  const STEPS: Step[] = ['welcome', 'password', 'timezone', 'wifi', 'ghost', 'hatch', 'devkit', 'done'];
   let step = $state<Step>('welcome');
   let stepIdx = $derived(STEPS.indexOf(step));
   let busy = $state(false);
@@ -36,6 +36,35 @@
       busy = false;
     }
   }
+
+  // --- devkit (pi/herdr coding agents, wired to the gateway) ---
+  interface DevkitStatus { nodePresent: boolean; state: string; tools: string[]; available: boolean }
+  let devkit = $state<DevkitStatus | null>(null);
+  let devkitBusy = $state(false);
+  let devkitPoll: ReturnType<typeof setInterval> | null = null;
+  function loadDevkit() {
+    api.get<DevkitStatus>('/devkit/status').then((d) => (devkit = d)).catch(() => {});
+  }
+  async function installDevkit() {
+    devkitBusy = true;
+    error = '';
+    try {
+      await api.post('/devkit/install', {});
+      devkitPoll = setInterval(async () => {
+        loadDevkit();
+        if (devkit?.state === 'ok' || devkit?.state.startsWith('failed')) {
+          if (devkitPoll) clearInterval(devkitPoll);
+          devkitBusy = false;
+        }
+      }, 2000);
+    } catch (e) {
+      degradeOrShow(e);
+      devkitBusy = false;
+    }
+  }
+  $effect(() => {
+    if (step === 'devkit' && devkit === null) loadDevkit();
+  });
 
   // Dev hosts (no root helper) skip privileged steps instead of blocking.
   function degradeOrShow(e: unknown) {
@@ -303,6 +332,23 @@
         <input bind:value={soulTraits} placeholder="e.g. loves dad jokes; British spelling" />
       </label>
       {#if hatched}<p class="hatched">✦ {soulName} is awake.</p>{/if}
+    {:else if step === 'devkit'}
+      <h2>Developer tools</h2>
+      <p class="sub">
+        Install <strong>pi</strong> and <strong>herdr</strong> — terminal AI
+        coding agents — pre-wired to the model you just configured. No keys to
+        paste: they run through GhOSt's gateway. Optional; add it later in
+        Settings any time.
+      </p>
+      {#if devkit && !devkit.nodePresent}
+        <p class="sub">Node.js isn't installed yet — you can add the dev tools later from Settings once it is.</p>
+      {:else if devkit?.state === 'ok'}
+        <p class="hatched">✦ Installed: {devkit.tools.join(', ')}. Run <code>pi</code> in a Terminal.</p>
+      {:else if devkit?.state === 'installing' || devkitBusy}
+        <p class="sub">Installing… this takes a couple of minutes.</p>
+      {:else if devkit?.state?.startsWith('failed')}
+        <p class="error">{devkit.state}</p>
+      {/if}
     {:else}
       <div class="hero">
         <h1>It's yours now.</h1>
@@ -350,6 +396,15 @@
         <button class="cta" disabled={busy} onclick={hatch}>
           {busy ? 'Hatching…' : hatched ? '✦ awake' : `Hatch ${soulName.trim() || arch.name}`}
         </button>
+      {:else if step === 'devkit'}
+        {#if devkit?.state === 'ok' || (devkit && !devkit.nodePresent) || devkit?.available === false}
+          <button class="cta" onclick={next}>Continue</button>
+        {:else}
+          <button class="cta" disabled={devkitBusy} onclick={installDevkit}>
+            {devkitBusy ? 'Installing…' : 'Install dev tools'}
+          </button>
+          <button class="ghost-btn" onclick={next}>Skip</button>
+        {/if}
       {:else}
         <button class="cta" disabled={busy} onclick={finish}>Enter GhOSt</button>
       {/if}

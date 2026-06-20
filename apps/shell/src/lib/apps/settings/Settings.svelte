@@ -21,6 +21,29 @@
     { id: 'about', name: 'About', icon: 'info' },
   ];
 
+  // --- devkit (pi/herdr coding agents) ---
+  interface DevkitStatus { nodePresent: boolean; state: string; tools: string[]; available: boolean }
+  let devkit = $state<DevkitStatus | null>(null);
+  let devkitBusy = $state(false);
+  function loadDevkit() {
+    api.get<DevkitStatus>('/devkit/status').then((d) => (devkit = d)).catch(() => {});
+  }
+  async function installDevkit() {
+    devkitBusy = true;
+    try {
+      await api.post('/devkit/install', {});
+      const poll = setInterval(() => {
+        loadDevkit();
+        if (devkit?.state === 'ok' || devkit?.state?.startsWith('failed')) {
+          clearInterval(poll);
+          devkitBusy = false;
+        }
+      }, 2000);
+    } catch {
+      devkitBusy = false;
+    }
+  }
+
   // --- backup & restore ---
   let backupBusy = $state('');
   let backupMsg = $state('');
@@ -97,6 +120,7 @@
       api.get<{ configured: boolean }>('/ai/status')
         .then((s) => (aiConfigured = s.configured))
         .catch(() => {});
+      if (devkit === null) loadDevkit();
     }
   });
 
@@ -306,6 +330,24 @@
           placeholder="You are calm, concise, and quietly capable…"></textarea>
       </label>
       <button class="action" onclick={saveSoul}>{soulSaved ? 'Saved ✓' : 'Save personality'}</button>
+
+      <h3 class="subhead">Developer tools</h3>
+      <p class="hint">
+        Install pi &amp; herdr — terminal AI coding agents — pre-wired to your
+        model through GhOSt's gateway (no keys to paste).
+      </p>
+      {#if devkit?.state === 'ok'}
+        <p class="hint ok">✦ Installed: {devkit.tools.join(', ')}. Run <code>pi</code> in a Terminal.</p>
+      {:else if devkit && !devkit.nodePresent}
+        <p class="hint">Node.js isn't installed — add the Office suite first (it brings Node).</p>
+      {:else if devkit?.available === false}
+        <p class="hint">Not available on this host.</p>
+      {:else}
+        <button class="action" disabled={devkitBusy} onclick={installDevkit}>
+          {devkitBusy || devkit?.state === 'installing' ? 'Installing… (a few minutes)' : 'Install dev tools'}
+        </button>
+        {#if devkit?.state?.startsWith('failed')}<p class="error">{devkit.state}</p>{/if}
+      {/if}
     {:else if panel === 'backup'}
       <header><h2>Backup &amp; restore</h2></header>
       <p class="hint">

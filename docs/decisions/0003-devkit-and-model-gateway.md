@@ -1,7 +1,21 @@
 # ADR 0003 — Devkit (pi, Herdr) and ghostd as the system model gateway
 
-Status: accepted (design) · Target: devkit in Phase 4/5 (image + OOBE),
-gateway in Phase 7 (with Ghost)
+Status: accepted (built) · Gateway and devkit both shipped.
+
+## As built
+
+- **Gateway** — `daemon/internal/ai/gateway.go`: ghostd serves `/v1/*` as an
+  OpenAI-compatible reverse proxy through the configured provider, token-gated.
+- **Devkit** — a *one-click OOBE step + Settings entry* (not baked into the
+  image). `/usr/local/bin/ghost-install-devkit` runs **user-level** (no root,
+  since Node ships with Office): it npm-installs pi (and herdr) to a user prefix
+  and writes wrappers to `~/.local/bin` that export `OPENAI_BASE_URL=
+  http://127.0.0.1:7700/v1` and `OPENAI_API_KEY=$(cat ~/.config/ghost/token)`,
+  so the agents inherit the user's model + routing + key with zero setup and all
+  their traffic is auditable through the gateway. `daemon/internal/devkit`
+  triggers the script (background) and reports status; `GET/POST /devkit/*`.
+  The on-device npm install (and the exact herdr package name) validate on the
+  Pi/VM — names are overridable via `GHOST_PI_PKG`/`GHOST_HERDR_PKG`.
 
 ## The question
 

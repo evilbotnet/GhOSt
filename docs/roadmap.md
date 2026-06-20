@@ -66,7 +66,9 @@ UTM and an amd64 image target.
 - ✅ **Model gateway** — [ADR 0003](decisions/0003-devkit-and-model-gateway.md):
   Ghost's configured provider exposed as a localhost OpenAI-compatible `/v1`
   endpoint so `pi`, Herdr, and other tools inherit your keys + routing + audit.
-- 🟡 **Devkit** — optional one-click `pi` / Herdr install.
+- ✅ **Devkit** — one-click (OOBE + Settings) install of pi/herdr, pre-wired to
+  the gateway with zero key setup ([ADR 0003](decisions/0003-devkit-and-model-gateway.md);
+  on-device npm install validates on the Pi/VM).
 
 **System & OS**
 - 🟡 **A/B image updates + verified boot** — atomic, rollback-safe updates
